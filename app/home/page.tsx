@@ -263,23 +263,6 @@ function HomeFeedContent() {
 
             <BottomNav />
 
-            <style jsx global>{`
-              @keyframes gradient-xy {
-                0%, 100% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-              }
-              .animate-gradient-xy {
-                background-size: 200% 200%;
-                animation: gradient-xy 3s ease infinite;
-              }
-              @keyframes bounce-x {
-                0%, 100% { transform: translateX(0); }
-                50% { transform: translateX(5px); }
-              }
-              .animate-bounce-x {
-                animation: bounce-x 1.5s infinite;
-              }
-            `}</style>
         </div>
     );
 }
