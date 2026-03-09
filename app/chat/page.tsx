@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import BottomNav from '../components/BottomNav';
 
 const mockMessages = [
@@ -38,8 +39,18 @@ const mockMessages = [
     },
 ];
 
-export default function Chat() {
+function ChatContent() {
+    const searchParams = useSearchParams();
+    const tabParam = searchParams.get('tab');
     const [activeTab, setActiveTab] = useState<'messages' | 'requests'>('messages');
+
+    useEffect(() => {
+        if (tabParam === 'requests') {
+            setActiveTab('requests');
+        } else {
+            setActiveTab('messages');
+        }
+    }, [tabParam]);
 
     return (
         <div className="bg-black min-h-screen text-white">
@@ -122,5 +133,17 @@ export default function Chat() {
 
             <BottomNav />
         </div>
+    );
+}
+
+export default function Chat() {
+    return (
+        <Suspense fallback={
+            <div className="bg-black min-h-screen flex items-center justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-pink-500 border-t-transparent rounded-full" />
+            </div>
+        }>
+            <ChatContent />
+        </Suspense>
     );
 }

@@ -1,7 +1,5 @@
-'use client';
-
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import BottomNav from '../components/BottomNav';
 import TopNav from '../components/TopNav';
@@ -22,9 +20,7 @@ interface Post {
     shop_id?: string;
 }
 
-import { useSearchParams } from 'next/navigation';
-
-export default function HomeFeed() {
+function HomeFeedContent() {
     const router = useRouter();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -91,7 +87,7 @@ export default function HomeFeed() {
     const handleLike = (postId: number) => {
         setLikes(prev => ({
             ...prev,
-            [postId]: prev[postId] + 1
+            [postId]: (prev[postId] || 0) + 1
         }));
     };
 
@@ -123,11 +119,8 @@ export default function HomeFeed() {
             >
                 {loading && (
                     <div className="h-full flex flex-col items-center justify-center text-zinc-500">
-                        <svg className="animate-spin h-8 w-8 mb-4 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p>{t('loading_posts', language)}</p>
+                        <div className="animate-spin h-8 w-8 mb-4 border-4 border-pink-500 border-t-transparent rounded-full" />
+                        <p className="text-xs font-bold tracking-widest uppercase">{t('loading_posts', language)}</p>
                     </div>
                 )}
                 {!loading && posts.length === 0 && (
@@ -230,7 +223,7 @@ export default function HomeFeed() {
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (expandedPost === post.id) {
-                                            router.push(`/request?shop=${post.id}`);
+                                            router.push(`/chat?tab=requests&shop=${post.id}`);
                                         } else {
                                             setExpandedPost(post.id);
                                         }
@@ -286,6 +279,18 @@ export default function HomeFeed() {
               }
             `}</style>
         </div>
+    );
+}
+
+export default function HomeFeed() {
+    return (
+        <Suspense fallback={
+            <div className="bg-black h-screen w-full flex items-center justify-center">
+                <div className="animate-spin h-8 w-8 border-4 border-pink-500 border-t-transparent rounded-full" />
+            </div>
+        }>
+            <HomeFeedContent />
+        </Suspense>
     );
 }
 
