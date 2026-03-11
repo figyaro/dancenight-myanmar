@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { t } from '../../lib/i18n';
+import LoadingScreen from '../components/LoadingScreen';
 import TopNav from '../components/TopNav';
 import BottomNav from '../components/BottomNav';
 import Link from 'next/link';
@@ -81,9 +82,7 @@ export default function Events() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center py-10">
-                        <div className="animate-spin h-8 w-8 text-pink-500 border-4 border-t-transparent rounded-full"></div>
-                    </div>
+                    <LoadingScreen fullScreen={false} />
                 ) : events.length === 0 ? (
                     <div className="text-center py-20 text-zinc-500">
                         <p>No events found.</p>
@@ -91,55 +90,49 @@ export default function Events() {
                 ) : (
                     <div className="space-y-6">
                         {events.map((event) => (
-                            <div key={event.id} className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 transition-transform active:scale-[0.98]">
-                                {event.image_url ? (
-                                    <img src={event.image_url} alt={event.title} className="w-full h-48 object-cover" />
-                                ) : (
-                                    <div className="w-full h-48 bg-zinc-800 flex items-center justify-center text-zinc-600">
-                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                            <line x1="16" y1="2" x2="16" y2="6" />
-                                            <line x1="8" y1="2" x2="8" y2="6" />
-                                            <line x1="3" y1="10" x2="21" y2="10" />
-                                        </svg>
-                                    </div>
-                                )}
-                                <div className="p-4">
-                                    <div className="text-pink-500 text-sm font-bold mb-1">
-                                        {formatDate(event.date)}
-                                    </div>
-                                    <h2 className="text-xl font-bold mb-2">{event.title}</h2>
-                                    <p className="text-zinc-400 text-sm mb-3 line-clamp-2">{event.description}</p>
-
-                                    <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/5">
-                                        <div className="flex items-center text-zinc-300 text-xs">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2 text-pink-500">
-                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                                <circle cx="12" cy="10" r="3" />
+                            <Link key={event.id} href={`/events/${event.id}`}>
+                                <div className="bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 transition-transform active:scale-[0.98]">
+                                    {event.image_url ? (
+                                        <img src={event.image_url} alt={event.title} className="w-full h-48 object-cover" />
+                                    ) : (
+                                        <div className="w-full h-48 bg-zinc-800 flex items-center justify-center text-zinc-600">
+                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                <line x1="16" y1="2" x2="16" y2="6" />
+                                                <line x1="8" y1="2" x2="8" y2="6" />
+                                                <line x1="3" y1="10" x2="21" y2="10" />
                                             </svg>
-                                            <span className="font-bold mr-1">{event.place}</span> <span className="text-zinc-500">({event.location})</span>
                                         </div>
-                                        {event.fee && (
-                                            <div className="flex items-center text-zinc-300 text-xs text-green-400">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2">
-                                                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                                                    <circle cx="12" cy="12" r="2" />
-                                                    <path d="M6 12h.01M18 12h.01" />
-                                                </svg>
-                                                {event.fee}
-                                            </div>
-                                        )}
-                                        {event.contact_phone && (
-                                            <div className="flex items-center text-zinc-300 text-xs">
+                                    )}
+                                    <div className="p-4">
+                                        <div className="text-pink-500 text-sm font-bold mb-1">
+                                            {formatDate(event.date)}
+                                        </div>
+                                        <h2 className="text-xl font-bold mb-2">{event.title}</h2>
+                                        <p className="text-zinc-400 text-sm mb-3 line-clamp-2">{event.description}</p>
+
+                                        <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/5">
+                                            <div className="flex items-center text-zinc-300 text-xs text-zinc-400">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2 text-pink-500">
-                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                                    <circle cx="12" cy="10" r="3" />
                                                 </svg>
-                                                {event.contact_phone}
+                                                <span className="font-bold mr-1 text-zinc-300">{event.place}</span> ({event.location})
                                             </div>
-                                        )}
+                                            {event.fee && (
+                                                <div className="flex items-center text-zinc-300 text-xs text-green-400/90 font-bold">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2">
+                                                        <rect x="2" y="6" width="20" height="12" rx="2" />
+                                                        <circle cx="12" cy="12" r="2" />
+                                                        <path d="M6 12h.01M18 12h.01" />
+                                                    </svg>
+                                                    {event.fee}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 )}

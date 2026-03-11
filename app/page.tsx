@@ -11,11 +11,8 @@ export default function IndexPage() {
       <div className="z-10 w-full max-w-sm flex flex-col items-center">
         {/* ロゴ・タイトルエリア */}
         <div className="mb-12 text-center">
-          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-pink-500 to-rose-500 rounded-3xl shadow-2xl flex items-center justify-center mb-6">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v20" />
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
+          <div className="w-24 h-24 mx-auto flex items-center justify-center mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
+            <img src="/logoDN.svg" alt="DanceNight Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 mb-3 tracking-tight">
             DanceNight

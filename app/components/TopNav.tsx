@@ -9,6 +9,7 @@ import { t } from '../../lib/i18n';
 export default function TopNav() {
     const pathname = usePathname();
     const [language, setLanguage] = useState<string | null>('英語');
+    const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
         const fetchLanguage = async () => {
@@ -34,17 +35,28 @@ export default function TopNav() {
     ];
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-[100] bg-black/40 backdrop-blur-xl border-b border-white/5">
+        <header
+            className={`fixed top-0 left-0 right-0 z-[100] bg-black/40 backdrop-blur-xl border-b border-white/5 transition-transform duration-500 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'
+                }`}
+        >
             <div className="max-w-md mx-auto flex items-center justify-center h-16 px-6 relative">
-                {/* Logo on the left */}
+                {/* Logo on the left - Toggle Button */}
                 <div className="absolute left-6 top-0 h-full flex items-center">
-                    <Link href="/home" className="transition-transform active:scale-95">
+                    <button
+                        onClick={() => setIsVisible(!isVisible)}
+                        className="transition-transform active:scale-95 z-[110]"
+                        style={{
+                            transform: !isVisible ? 'translateY(80px)' : 'none',
+                            transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                        }}
+                    >
                         <img
                             src="/logoDN.svg"
                             alt="DanceNight"
-                            className="h-12 w-auto object-contain drop-shadow-lg"
+                            className={`h-12 w-auto object-contain drop-shadow-lg transition-transform duration-700 ${isVisible ? 'rotate-0' : 'rotate-[360deg]'
+                                }`}
                         />
-                    </Link>
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-8 relative">

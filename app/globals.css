@@ -24,19 +24,107 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
 @keyframes gradient-xy {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
 }
+
 .animate-gradient-xy {
   background-size: 200% 200%;
   animation: gradient-xy 3s ease infinite;
 }
 
 @keyframes bounce-x {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
 }
+
 .animate-bounce-x {
   animation: bounce-x 1.5s infinite;
+}
+
+/* Entry Animations */
+@keyframes icon-bounce-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px) scale(0.3);
+    filter: blur(10px);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateX(15px) scale(1.1);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes text-fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.98);
+    filter: blur(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-logo-spin {
+  animation: logo-spin 2s linear infinite;
+}
+
+/* Exit Animations */
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-icon-entry {
+  animation: icon-bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-text-entry {
+  animation: text-fade-in-up 0.5s ease-out forwards;
+}
+
+.animate-fade-exit {
+  animation: fade-out 0.3s ease-in forwards;
 }

@@ -76,7 +76,7 @@ export default function Login() {
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="block text-sm font-medium text-zinc-400">パスワード</label>
-                                <Link href="#" className="text-xs text-pink-500 hover:text-pink-400">
+                                <Link href="/forgot-password" id="forgot-password-link" className="text-xs text-pink-500 hover:text-pink-400">
                                     パスワードを忘れた場合
                                 </Link>
                             </div>
