@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import BottomNav from '../../components/BottomNav';
 import TopNav from '../../components/TopNav';
 import { supabase } from '../../../lib/supabase';
+import { getEffectiveUserId } from '../../../lib/auth-util';
 import { t } from '../../../lib/i18n';
 import LoadingScreen from '../../components/LoadingScreen';
 
@@ -23,15 +24,15 @@ export default function PublicProfile() {
         const fetchProfileData = async () => {
             if (!id) return;
             try {
-                // Get viewer's language and ID
-                const { data: { user: viewer } } = await supabase.auth.getUser();
-                setCurrentUser(viewer);
+                // Get viewer's ID (handles impersonation)
+                const viewerId = await getEffectiveUserId();
+                setCurrentUser(viewerId ? { id: viewerId } : null);
 
-                if (viewer) {
+                if (viewerId) {
                     const { data: viewerData } = await supabase
                         .from('users')
                         .select('language')
-                        .eq('id', viewer.id)
+                        .eq('id', viewerId)
                         .single();
                     if (viewerData?.language) {
                         setViewerLanguage(viewerData.language);
@@ -41,7 +42,7 @@ export default function PublicProfile() {
                     const { data: followData } = await supabase
                         .from('follows')
                         .select('follower_id, following_id')
-                        .eq('follower_id', viewer.id)
+                        .eq('follower_id', viewerId)
                         .eq('following_id', id)
                         .maybeSingle();
                     setIsFollowing(!!followData);

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import GlobalLoader from "./components/GlobalLoader";
+import ImpersonationBanner from "./components/ImpersonationBanner";
+import ImpersonationLogic from "./components/ImpersonationLogic";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -32,7 +34,9 @@ export default function RootLayout({
       >
         <Suspense fallback={null}>
           <GlobalLoader />
+          <ImpersonationLogic />
         </Suspense>
+        <ImpersonationBanner />
         {children}
       </body>
     </html>

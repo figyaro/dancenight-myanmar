@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
+import { PremiumChart, DailyStat } from '../../components/PremiumChart';
+
+interface AnalyticsEvent {
+    event_type: string;
+    created_at: string;
+}
 
 export default function ShopDashboard() {
     const { shopId } = useParams();
@@ -13,17 +19,23 @@ export default function ShopDashboard() {
         reservations: 0,
         reviews: 0
     });
+    const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const fetchData = async () => {
             try {
-                // Placeholder fetch logic
+                // Fetch Stats
                 const [p, f, r, rv] = await Promise.all([
                     supabase.from('posts').select('id', { count: 'exact', head: true }).eq('shop_id', shopId),
-                    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', shopId), // Assuming follows table supports shop_id
-                    supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('shop_id', shopId), // Assuming check-in/res
-                    supabase.from('likes').select('id', { count: 'exact', head: true }), // Placeholder for reviews
+                    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', shopId),
+                    supabase.from('room_reservations').select('id', { count: 'exact', head: true }).in('room_id', (
+                        await supabase
+                            .from('shop_rooms')
+                            .select('id')
+                            .eq('shop_id', shopId)
+                    ).data?.map(r => r.id) || []),
+                    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('shop_id', shopId),
                 ]);
 
                 setStats({
@@ -32,20 +44,58 @@ export default function ShopDashboard() {
                     reservations: r.count || 0,
                     reviews: rv.count || 0
                 });
+
+                // Fetch Analytics for the last 7 days
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 7);
+                const { data: events } = await supabase
+                    .from('analytics_events')
+                    .select('event_type, created_at')
+                    .eq('shop_id', shopId)
+                    .gte('created_at', startDate.toISOString())
+                    .order('created_at', { ascending: true });
+                
+                setAnalyticsEvents(events || []);
+
             } catch (err) {
-                console.error('Error fetching shop stats:', err);
+                console.error('Error fetching dashboard data:', err);
             } finally {
                 setLoading(false);
             }
         };
 
-        if (shopId) fetchStats();
+        if (shopId) fetchData();
     }, [shopId]);
+
+    const chartData = useMemo(() => {
+        const dailyMap: Record<string, DailyStat> = {};
+        for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            dailyMap[dateStr] = { date: dateStr, impressions: 0, actions: 0, engagement: 0 };
+        }
+
+        analyticsEvents.forEach(event => {
+            const dateStr = event.created_at.split('T')[0];
+            if (!dailyMap[dateStr]) return;
+
+            if (event.event_type.includes('impression')) {
+                dailyMap[dateStr].impressions++;
+            } else if (['action_click', 'map_view', 'reservation_click', 'sns_click'].includes(event.event_type)) {
+                dailyMap[dateStr].actions++;
+            } else if (['like_click', 'comment_click'].includes(event.event_type)) {
+                dailyMap[dateStr].engagement++;
+            }
+        });
+
+        return Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+    }, [analyticsEvents]);
 
     const cards = [
         { label: 'Shop Posts', value: stats.posts, icon: '📝', color: 'from-blue-600/20 to-cyan-600/20' },
         { label: 'Followers', value: stats.followers, icon: '👥', color: 'from-pink-600/20 to-purple-600/20' },
-        { label: 'Active Leads', value: stats.reservations, icon: '📅', color: 'from-orange-600/20 to-red-600/20' },
+        { label: 'Leads (Res)', value: stats.reservations, icon: '📅', color: 'from-orange-600/20 to-red-600/20' },
         { label: 'Total Reviews', value: stats.reviews, icon: '⭐', color: 'from-yellow-600/20 to-orange-600/20' },
     ];
 
@@ -67,23 +117,16 @@ export default function ShopDashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 bg-zinc-900 border border-white/5 rounded-[2.5rem] p-10 backdrop-blur-3xl">
-                    <h4 className="font-black text-xs uppercase tracking-[0.4em] text-zinc-500 mb-8 flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
-                        Engagement Graph
-                    </h4>
-                    <div className="h-64 flex items-end gap-3 px-4">
-                        {[40, 70, 45, 90, 65, 80, 50, 85, 60, 95, 75, 100].map((h, i) => (
-                            <div key={i} className="flex-1 bg-gradient-to-t from-pink-600/40 to-pink-500/10 rounded-t-lg transition-all hover:to-pink-500/30 cursor-pointer group relative" style={{ height: `${h}%` }}>
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-black text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {h}%
-                                </div>
-                            </div>
-                        ))}
+                    <div className="flex justify-between items-center mb-8">
+                        <h4 className="font-black text-xs uppercase tracking-[0.4em] text-zinc-500 flex items-center gap-3">
+                            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
+                            Engagement Graph (Sales/Actions)
+                        </h4>
+                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Last 7 Days</span>
                     </div>
-                    <div className="flex justify-between mt-6 px-4 text-[10px] font-black text-zinc-600 tracking-widest uppercase">
-                        <span>Jan</span>
-                        <span>Jun</span>
-                        <span>Dec</span>
+                    
+                    <div className="h-72 w-full">
+                        <PremiumChart data={chartData} metric="actions" />
                     </div>
                 </div>
 

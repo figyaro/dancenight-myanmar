@@ -39,6 +39,11 @@ export default function PostManagement() {
         else setPosts(prev => prev.filter(p => p.id !== postId));
     };
 
+    const isVideo = (url: string) => {
+        if (!url) return false;
+        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+    };
+
     if (loading) return <LoadingScreen fullScreen={false} />;
 
     return (
@@ -55,52 +60,90 @@ export default function PostManagement() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {posts.map((post) => (
-                    <div key={post.id} className="bg-zinc-900/40 rounded-3xl border border-white/5 overflow-hidden backdrop-blur-xl group flex flex-col h-full">
-                        {post.media_url ? (
-                            <div className="aspect-video w-full overflow-hidden relative">
-                                <img src={post.media_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-widest">
-                                    {post.type?.toUpperCase() || 'POST'}
+                    <div key={post.id} className="relative aspect-[9/19] bg-zinc-900 rounded-[2.5rem] border-4 border-zinc-800 overflow-hidden group shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:border-white/20">
+                        {/* Media Content */}
+                        <div className="absolute inset-0 w-full h-full">
+                            {post.main_image_url ? (
+                                isVideo(post.main_image_url) ? (
+                                    <video 
+                                        src={post.main_image_url} 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                        muted
+                                        playsInline
+                                        onMouseOver={(e) => e.currentTarget.play()}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.pause();
+                                            e.currentTarget.currentTime = 0;
+                                        }}
+                                    />
+                                ) : (
+                                    <img 
+                                        src={post.main_image_url} 
+                                        alt="" 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    />
+                                )
+                            ) : (
+                                <div className="w-full h-full bg-zinc-800 flex items-center justify-center p-6 text-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">No media attachment</span>
                                 </div>
+                            )}
+                            
+                            {/* Dark Overlay Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
+                            
+                            {/* Video Indicator */}
+                            {isVideo(post.main_image_url) && (
+                                <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Top Notch/Info Area */}
+                        <div className="absolute top-0 inset-x-0 h-12 flex items-center justify-between px-6 z-10">
+                            <div className="bg-black px-4 py-1.5 rounded-full text-[8px] font-black tracking-[0.2em] border border-white/5">
+                                {post.type?.toUpperCase() || 'POST'}
                             </div>
-                        ) : (
-                            <div className="aspect-video w-full bg-zinc-800 flex items-center justify-center text-zinc-600 italic text-xs">
-                                No media attachment
-                            </div>
-                        )}
-                        
-                        <div className="p-6 flex-1 flex flex-col">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10">
+                            <button 
+                                onClick={() => deletePost(post.id)}
+                                className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500 text-white flex items-center justify-center transition-all border border-red-500/50 backdrop-blur-md"
+                            >
+                                <span className="text-[10px]">✕</span>
+                            </button>
+                        </div>
+
+                        {/* Bottom Content Area - Glassmorphism */}
+                        <div className="absolute bottom-0 inset-x-0 p-4 pt-10 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
+                            {/* User Info */}
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 rounded-full overflow-hidden border border-white/20">
                                     <img src={post.user?.avatar_url || '/placeholder-avatar.png'} alt="" className="w-full h-full object-cover" />
                                 </div>
-                                <span className="text-xs font-black">{post.user?.nickname || 'Unknown'}</span>
+                                <span className="text-[10px] font-black text-white/90 truncate">{post.user?.nickname || 'Unknown'}</span>
                             </div>
 
-                            <p className="text-sm text-zinc-300 line-clamp-3 mb-6 font-medium leading-relaxed">
+                            {/* Post Text */}
+                            <p className="text-[11px] text-zinc-200 line-clamp-3 font-medium leading-relaxed mb-4">
                                 {post.content}
                             </p>
 
-                            <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
-                                <span className="text-[10px] font-black text-zinc-500">
+                            {/* Meta Info */}
+                            <div className="flex items-center justify-between py-2 border-t border-white/10">
+                                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">
                                     {new Date(post.created_at).toLocaleDateString()}
                                 </span>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => deletePost(post.id)}
-                                        className="w-10 h-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-all"
-                                        title="Delete Post"
-                                    >
-                                        🗑️
-                                    </button>
-                                    <button className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-all">
-                                        👁️
-                                    </button>
+                                <div className="flex gap-1.5">
+                                    <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px]">💬</div>
+                                    <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px]">❤️</div>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Smartphone Home Bar Effect */}
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-16 h-1 bg-white/20 rounded-full" />
                     </div>
                 ))}
             </div>

@@ -6,12 +6,16 @@ import Link from 'next/link';
 import BottomNav from '../components/BottomNav';
 import TopNav from '../components/TopNav';
 import { supabase } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 import { t } from '../../lib/i18n';
+import { trackAnalyticsEvent } from '../../lib/analytics';
 import LoadingScreen from '../components/LoadingScreen';
+import VolumeDial from '../components/VolumeDial';
 
 interface UserProfile {
     nickname: string;
     avatar_url: string;
+    role: string;
 }
 
 interface Post {
@@ -49,9 +53,18 @@ function HomeFeedContent() {
     const [likes, setLikes] = useState<Record<string, number>>({});
     const [userLikes, setUserLikes] = useState<string[]>([]);
     const [user, setUser] = useState<any>(null);
+    const [userId, setUserId] = useState<string | null>(null); // Added userId state
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
+    
+    // Audio State
+    const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(1.0);
+    const [hasInteracted, setHasInteracted] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(true);
+    const [faintIcon, setFaintIcon] = useState<'play' | 'pause' | null>(null);
+    const iconTimerRef = useRef<NodeJS.Timeout | null>(null);
     
     // Social Modal State
     const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
@@ -61,6 +74,7 @@ function HomeFeedContent() {
     const [newComment, setNewComment] = useState("");
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
     const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+    const [followingIds, setFollowingIds] = useState<string[]>([]);
 
     const searchParams = useSearchParams();
     const postIdParam = searchParams.get('postId');
@@ -71,40 +85,65 @@ function HomeFeedContent() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                // Fetch user and language
-                const { data: { user: authUser } } = await supabase.auth.getUser();
+                // Use getSession() instead of getUser() for better performance and stability
+                const { data: { session } } = await supabase.auth.getSession();
+                const authUser = session?.user || null;
                 setUser(authUser);
+
+                // Get effective user ID (could be impersonated)
+                // In client-side, we check sessionStorage first
+                const impersonatedId = typeof window !== 'undefined' ? sessionStorage.getItem('impersonatedId') : null;
+                const effectiveUserId = impersonatedId || authUser?.id || null;
+                setUserId(effectiveUserId);
                 
-                if (authUser) {
+                if (effectiveUserId) {
+                    // Fetch language for the effective user
                     const { data: userData } = await supabase
                         .from('users')
                         .select('language')
-                        .eq('id', authUser.id)
+                        .eq('id', effectiveUserId)
                         .single();
                     if (userData?.language) {
                         setLanguage(userData.language);
                     }
+
+                    // Fetch following list for the effective user
+                    const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', effectiveUserId);
+                    if (followsData) setFollowingIds(followsData.map(f => f.following_id));
                 }
 
-                // Fetch posts with user profile join
+                // Fetch recommended posts using RPC
                 const { data, error } = await supabase
-                    .from('posts')
-                    .select('*, users(nickname, avatar_url)')
-                    .order('id', { ascending: false });
+                    .rpc('get_recommended_posts', { p_user_id: effectiveUserId });
 
-                if (error) throw error;
-                if (data) {
+                if (error) {
+                    console.warn("RPC failed, falling back to standard query", error);
+                    // Fallback
+                    const { data: fallbackData, error: fallbackError } = await supabase
+                        .from('posts')
+                        .select('*, users(nickname, avatar_url, role)')
+                        .order('created_at', { ascending: false });
+                    
+                    if (fallbackError) throw fallbackError;
+                    setPosts(fallbackData as Post[]);
+                } else if (data) {
                     setPosts(data as Post[]);
+                }
 
+                if (data || posts.length > 0) {
                     // Fetch real-time likes
                     const { data: likesData } = await supabase.from('likes').select('post_id');
                     const counts: Record<string, number> = {};
                     likesData?.forEach(l => counts[l.post_id] = (counts[l.post_id] || 0) + 1);
                     setLikes(counts);
 
-                    if (authUser) {
-                        const { data: userLikesData } = await supabase.from('likes').select('post_id').eq('user_id', authUser.id);
+                    if (effectiveUserId) {
+                        const { data: userLikesData } = await supabase.from('likes').select('post_id').eq('user_id', effectiveUserId);
                         if (userLikesData) setUserLikes(userLikesData.map(l => l.post_id));
+
+                        // Fetch following list for the effective user
+                        const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', effectiveUserId);
+                        if (followsData) setFollowingIds(followsData.map(f => f.following_id));
                     }
 
                     // Fetch comment counts
@@ -117,8 +156,9 @@ function HomeFeedContent() {
                         console.warn('Comments table might not exist yet', cErr);
                     }
 
-                    if (data.length > 0) {
-                        setTimeout(() => setActivePostId(data[0].id), 300);
+                    const initialPosts = data || posts;
+                    if (initialPosts.length > 0) {
+                        setTimeout(() => setActivePostId(initialPosts[0].id), 300);
                     }
                 }
             } catch (err) {
@@ -159,6 +199,11 @@ function HomeFeedContent() {
                 await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId);
             } else {
                 await supabase.from('likes').insert([{ user_id: user.id, post_id: postId }]);
+                trackAnalyticsEvent({ 
+                    postId, 
+                    shopId: posts.find(p => p.id === postId)?.shop_id,
+                    eventType: 'like_click' 
+                });
             }
         } catch (err) {
             console.error('Error toggling like:', err);
@@ -209,6 +254,11 @@ function HomeFeedContent() {
 
             if (!error && data) {
                 setComments(prev => [data as Comment, ...prev]);
+                trackAnalyticsEvent({ 
+                    postId: currentPost.id, 
+                    shopId: currentPost.shop_id,
+                    eventType: 'comment_click' 
+                });
                 setNewComment("");
                 setCommentCounts(prev => ({
                     ...prev,
@@ -264,6 +314,73 @@ function HomeFeedContent() {
         if (posts.length > 0) handleScroll();
     }, [posts]);
 
+    // Reset play state and track impressions only when the active post actually changes
+    useEffect(() => {
+        if (activePostId) {
+            setIsPlaying(true);
+            setFaintIcon(null);
+
+            // Impression tracking logic
+            const impressionTimer = setTimeout(async () => {
+                if (!userId || !activePostId) return;
+                try {
+                    const post = posts.find(p => p.id === activePostId);
+                    trackAnalyticsEvent({ 
+                        postId: activePostId, 
+                        shopId: post?.shop_id,
+                        eventType: 'post_impression' 
+                    });
+                } catch (err) {
+                    // Silently fail if already seen or network error
+                }
+            }, 2000); // 2 seconds spent on post = seen
+
+            return () => clearTimeout(impressionTimer);
+        }
+    }, [activePostId, userId]);
+
+    // Play/Pause video based on activePostId and isPlaying state
+    useEffect(() => {
+        if (!activePostId) return;
+
+        const timer = setTimeout(() => {
+            Object.entries(postRefs.current).forEach(([id, container]) => {
+                const video = container?.querySelector('video');
+                if (!video) return;
+
+                if (id === activePostId) {
+                    if (isPlaying) {
+                        video.play().catch(err => console.warn("Auto-play blocked:", err));
+                    } else {
+                        video.pause();
+                    }
+                    video.muted = !hasInteracted || isMuted;
+                    video.volume = volume;
+                } else {
+                    video.pause();
+                    video.currentTime = 0;
+                }
+            });
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, [activePostId, hasInteracted, isMuted, volume, posts, isPlaying]);
+
+    const togglePlay = (e: React.MouseEvent | React.TouchEvent) => {
+        // Only toggle if not clicking on interaction menu/buttons
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('a')) return;
+
+        if (!hasInteracted) setHasInteracted(true);
+        
+        const newState = !isPlaying;
+        setIsPlaying(newState);
+        setFaintIcon(newState ? 'play' : 'pause');
+
+        if (iconTimerRef.current) clearTimeout(iconTimerRef.current);
+        iconTimerRef.current = setTimeout(() => setFaintIcon(null), 1200);
+    };
+
     return (
         <div className="bg-black text-white h-[100dvh] w-full overflow-hidden relative">
             <style jsx global>{`
@@ -292,6 +409,11 @@ function HomeFeedContent() {
                     0% { transform: translateY(10px); opacity: 0; filter: blur(4px); }
                     100% { transform: translateY(0); opacity: 1; filter: blur(0); }
                 }
+                @keyframes gradient-shift {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
             `}</style>
 
             <TopNav />
@@ -300,6 +422,7 @@ function HomeFeedContent() {
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
+                onClick={togglePlay}
                 className="absolute inset-0 snap-y snap-mandatory overflow-y-scroll scrollbar-hide bg-black overscroll-none"
                 style={{ WebkitOverflowScrolling: 'touch' }}
             >
@@ -309,6 +432,19 @@ function HomeFeedContent() {
                         <p className="text-xs font-bold tracking-widest uppercase">{t('loading_posts', language)}</p>
                     </div>
                 )}
+                {!loading && posts.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-black">
+                        <div className="w-24 h-24 bg-zinc-900 rounded-full flex items-center justify-center mb-8 text-4xl grayscale opacity-30">🪩</div>
+                        <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">No posts yet</h2>
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.2em] mb-10 leading-relaxed">Designing the next viral moment...<br/>Be the first to share your world.</p>
+                        <Link 
+                            href="/post"
+                            className="px-10 py-5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white rounded-2xl text-[10px] font-black tracking-[0.3em] transition-all uppercase shadow-[0_20px_40px_rgba(236,72,153,0.3)] active:scale-95"
+                        >
+                            Share your first update
+                        </Link>
+                    </div>
+                )}
                 {!loading && posts.map((post) => (
                     <div
                         key={post.id}
@@ -316,10 +452,38 @@ function HomeFeedContent() {
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
                     >
                         {post.main_image_url ? (
-                            <img src={post.main_image_url} className="absolute inset-0 w-full h-full object-cover" alt={post.name} />
+                            post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                                <video 
+                                    src={post.main_image_url} 
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                    loop
+                                    playsInline
+                                    muted={true} // Start muted to avoid browser blocks, effect will unmute
+                                />
+                            ) : (
+                                <img src={post.main_image_url} className="absolute inset-0 w-full h-full object-cover" alt={post.name} />
+                            )
                         ) : (
                             <div className="absolute inset-0 w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600">
                                 <span className="font-black tracking-tighter opacity-20 text-4xl">DANCE NIGHT</span>
+                            </div>
+                        )}
+
+                        {/* Play/Pause Center Icon Overlay - Centered with animation */}
+                        {activePostId === post.id && faintIcon && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100]">
+                                <div className="bg-black/30 backdrop-blur-md p-6 rounded-3xl animate-in zoom-in fade-out duration-1000 ease-out fill-mode-forwards shadow-2xl border border-white/5">
+                                    {faintIcon === 'play' ? (
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="white" className="opacity-70 translate-x-0.5">
+                                            <path d="M7 6v12l10-6z" stroke="white" strokeWidth="1" strokeLinejoin="round" />
+                                        </svg>
+                                    ) : (
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="white" className="opacity-70">
+                                            <rect x="6" y="5" width="3" height="14" rx="1" />
+                                            <rect x="15" y="5" width="3" height="14" rx="1" />
+                                        </svg>
+                                    )}
+                                </div>
                             </div>
                         )}
                         <div
@@ -348,7 +512,15 @@ function HomeFeedContent() {
                             <h2 className={`text-3xl font-black mb-1 drop-shadow-2xl ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.5s' }}>{post.name}</h2>
                             <p className={`text-base mb-3 drop-shadow-md text-zinc-200 line-clamp-1 font-medium ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.55s' }}>{post.title}</p>
                             <div className="flex items-center gap-3">
-                                <p className={`text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-300 text-2xl font-black ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.6s' }}>{post.price_per_hour.toLocaleString()} <span className="text-xs font-bold uppercase">{post.currency}</span></p>
+                                {post.price_per_hour !== null && post.price_per_hour !== undefined && post.price_per_hour > 0 ? (
+                                    <p className={`text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-300 text-2xl font-black ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.6s' }}>
+                                        {post.price_per_hour.toLocaleString()} <span className="text-xs font-bold uppercase">{post.currency || 'MMK'}</span>
+                                    </p>
+                                ) : (
+                                    <p className={`text-zinc-400 text-sm font-black tracking-widest uppercase ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.6s' }}>
+                                        EXCLUSIVE REVEAL
+                                    </p>
+                                )}
                                 <p className={`flex items-center gap-1 text-[10px] text-zinc-300 font-black tracking-widest uppercase bg-white/5 px-2 py-1 rounded-lg backdrop-blur-md border border-white/10 ${activePostId === post.id ? 'animate-text-entry' : 'opacity-0'}`} style={{ animationDelay: '0.65s' }}>
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                     {post.location_name}
@@ -370,11 +542,20 @@ function HomeFeedContent() {
                                 <Link href={`/profile/${post.user_id}`} className="relative group active:scale-90 transition-transform block">
                                     <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-500">
                                         <div className="w-full h-full rounded-full border-2 border-black overflow-hidden bg-zinc-900">
-                                            <img
-                                                src={post.users?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.user_id}`}
-                                                className="w-full h-full object-cover"
-                                                alt="Profile"
-                                            />
+                                            {post.users?.avatar_url ? (
+                                                <img
+                                                    src={post.users.avatar_url}
+                                                    className="w-full h-full object-cover"
+                                                    alt="Profile"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800">
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                        <circle cx="12" cy="7" r="4" />
+                                                    </svg>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-pink-600 text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">+</div>
@@ -421,35 +602,66 @@ function HomeFeedContent() {
                                 <span className="text-[11px] font-black drop-shadow-md mt-1 text-zinc-300 uppercase tracking-tighter">Share</span>
                             </button>
 
-                            {/* RSV */}
+                            {/* Interaction Button (RSV for Dancers / Message for Users) */}
                             <div
                                 className={`relative flex items-center justify-end w-full min-h-[56px] ${activePostId === post.id ? 'animate-icon-entry' : 'opacity-0'}`}
                                 onTouchStart={handleTouchStart}
                                 onTouchEnd={(e) => handleTouchEnd(e, post.id)}
                                 style={{ animationDelay: '0.5s' }}
                             >
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (expandedPost === post.id) router.push(`/chat?tab=requests&shop=${post.id}`);
-                                        else setExpandedPost(post.id);
-                                    }}
-                                    className={`relative z-20 flex flex-col items-center justify-center transition-all duration-500 ease-out overflow-hidden shadow-2xl ${expandedPost === post.id
-                                        ? 'w-48 bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl px-2 h-14'
-                                        : 'w-14 h-14 bg-white/10 backdrop-blur-xl border-2 border-white/20 rounded-full hover:bg-white/20'
-                                        }`}
-                                >
-                                    {expandedPost === post.id ? (
-                                        <span className="text-white font-black text-[10px] tracking-widest whitespace-nowrap animate-in fade-in slide-in-from-right-4 duration-500">
-                                            RESERVE TONIGHT
-                                        </span>
-                                    ) : (
-                                        <>
-                                            <span className="text-[9px] font-black tracking-tighter text-white leading-none mb-0.5">RSV</span>
-                                            <div className="w-4 h-0.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(236,72,153,1)]" />
-                                        </>
-                                    )}
-                                </button>
+                                {post.users?.role === 'dancer' ? (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (expandedPost === post.id) router.push(`/chat?tab=requests&shop=${post.id}`);
+                                            else setExpandedPost(post.id);
+                                        }}
+                                        className={`relative z-20 flex flex-col items-center justify-center transition-all duration-500 ease-out overflow-hidden shadow-2xl ${expandedPost === post.id
+                                            ? 'w-48 bg-gradient-to-r from-pink-600 via-rose-500 to-pink-600 bg-[length:200%_200%] animate-[gradient-shift_3s_ease_infinite] rounded-2xl px-2 h-16 border-2 border-pink-900/60'
+                                            : 'w-14 h-14 bg-black/40 backdrop-blur-xl border-2 border-pink-500 rounded-full hover:bg-pink-500/10'
+                                            }`}
+                                    >
+                                        {expandedPost === post.id ? (
+                                            <div className="flex flex-col items-center leading-none animate-in fade-in slide-in-from-right-4 duration-500">
+                                                <span className="text-white font-black text-sm tracking-tighter uppercase">DANCE</span>
+                                                <span className="text-white/80 font-black text-[10px] tracking-[0.2em] uppercase -mt-0.5">TODAY</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <span className="text-[10px] font-black tracking-tighter text-pink-500 leading-none mb-0.5">RSV</span>
+                                                <div className="w-4 h-0.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(236,72,153,1)]" />
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const isFollowing = followingIds.includes(post.user_id);
+                                            if (!isFollowing) {
+                                                alert("Follow this user to start a message.");
+                                                return;
+                                            }
+                                            router.push(`/chat?recipient=${post.user_id}`);
+                                        }}
+                                        className="w-14 h-14 bg-blue-600/20 backdrop-blur-xl border-2 border-blue-500/30 rounded-full flex flex-col items-center justify-center hover:bg-blue-600/40 transition-all active:scale-90 shadow-2xl"
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-blue-400 mb-0.5">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                        </svg>
+                                        <span className="text-[8px] font-black tracking-tighter text-blue-400 leading-none">CHAT</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Volume Control */}
+                            <div className={`${activePostId === post.id ? 'animate-icon-entry' : 'opacity-0'}`} style={{ animationDelay: '0.6s' }}>
+                                <VolumeDial 
+                                    volume={volume} 
+                                    isMuted={isMuted} 
+                                    onVolumeChange={setVolume} 
+                                    onMuteToggle={() => setIsMuted(!isMuted)} 
+                                />
                             </div>
                         </div>
                     </div>
@@ -478,7 +690,16 @@ function HomeFeedContent() {
                                 comments.map(comment => (
                                     <div key={comment.id} className="flex gap-3">
                                         <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden flex-shrink-0 bg-zinc-800">
-                                            <img src={comment.users?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_id}`} className="w-full h-full object-cover" />
+                                            {comment.users?.avatar_url ? (
+                                                <img src={comment.users.avatar_url} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                        <circle cx="12" cy="7" r="4" />
+                                                    </svg>
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">{comment.users?.nickname || 'Guest User'}</p>

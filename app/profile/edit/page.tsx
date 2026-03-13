@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
+import { getEffectiveUserId } from '../../../lib/auth-util';
 
 export default function EditProfile() {
     const router = useRouter();
@@ -19,6 +20,7 @@ export default function EditProfile() {
         gender: '',
         nationality: '',
         language: '',
+        phone: '',
         avatar_url: ''
     });
 
@@ -66,10 +68,10 @@ export default function EditProfile() {
                 try {
                     if (!blob) throw new Error('Blob creation failed');
 
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) throw new Error('ログインセッションが切れています。もう一度ログインしてください。');
+                    const userId = await getEffectiveUserId();
+                    if (!userId) throw new Error('ログインセッションが切れています。もう一度ログインしてください。');
 
-                    const newFile = new File([blob], `${user.id}-${Date.now()}.jpeg`, { type: 'image/jpeg' });
+                    const newFile = new File([blob], `${userId}-${Date.now()}.jpeg`, { type: 'image/jpeg' });
 
                     const { error: uploadError } = await supabase.storage
                         .from('avatars')
@@ -137,8 +139,8 @@ export default function EditProfile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
+                const userId = await getEffectiveUserId();
+                if (!userId) {
                     router.push('/login');
                     return;
                 }
@@ -146,7 +148,7 @@ export default function EditProfile() {
                 const { data, error } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', user.id)
+                    .eq('id', userId)
                     .single();
 
                 if (error) throw error;
@@ -160,6 +162,7 @@ export default function EditProfile() {
                         gender: data.gender || '',
                         nationality: data.nationality || '',
                         language: data.language || '',
+                        phone: data.phone || '',
                         avatar_url: data.avatar_url || ''
                     });
                 }
@@ -181,8 +184,8 @@ export default function EditProfile() {
         e.preventDefault();
         setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+        const userId = await getEffectiveUserId();
+        if (!userId) return;
 
             const { data, error } = await supabase
                 .from('users')
@@ -195,10 +198,11 @@ export default function EditProfile() {
                     gender: formData.gender,
                     nationality: formData.nationality,
                     language: formData.language,
+                    phone: formData.phone,
                     avatar_url: formData.avatar_url,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', user.id)
+                .eq('id', userId)
                 .select();
 
             console.log('Update result:', { data, error });
@@ -329,30 +333,43 @@ export default function EditProfile() {
                         <h3 className="font-bold text-zinc-300 mb-4">基本情報</h3>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-zinc-400 mb-1">生年月日</label>
-                                <input
-                                    type="date"
-                                    name="birth_date"
-                                    value={formData.birth_date}
-                                    onChange={handleChange}
-                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 [color-scheme:dark]"
-                                />
+                             <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">生年月日</label>
+                                    <input
+                                        type="date"
+                                        name="birth_date"
+                                        value={formData.birth_date}
+                                        onChange={handleChange}
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 [color-scheme:dark]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">性別</label>
+                                    <select
+                                        name="gender"
+                                        value={formData.gender}
+                                        onChange={handleChange}
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none"
+                                    >
+                                        <option value="">選択してください</option>
+                                        <option value="男性">男性</option>
+                                        <option value="女性">女性</option>
+                                        <option value="その他">その他</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-zinc-400 mb-1">性別</label>
-                                <select
-                                    name="gender"
-                                    value={formData.gender}
+                                <label className="block text-sm font-medium text-zinc-400 mb-1">電話番号</label>
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
                                     onChange={handleChange}
-                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none"
-                                >
-                                    <option value="">選択してください</option>
-                                    <option value="男性">男性</option>
-                                    <option value="女性">女性</option>
-                                    <option value="その他">その他</option>
-                                </select>
+                                    placeholder="0912345678"
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500"
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

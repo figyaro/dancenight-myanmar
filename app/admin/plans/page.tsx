@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
+import SlideOver from '../components/SlideOver';
 
 interface Plan {
     id: string;
@@ -19,6 +20,7 @@ export default function PlanManagement() {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Partial<Plan> | null>(null);
 
     useEffect(() => {
@@ -40,11 +42,12 @@ export default function PlanManagement() {
     const handleSave = async () => {
         if (!editingPlan?.name || !editingPlan?.type) return;
 
-        setLoading(true);
+        setIsSaving(true);
         const { error } = editingPlan.id 
             ? await supabase.from('plans').update(editingPlan).eq('id', editingPlan.id)
             : await supabase.from('plans').insert([editingPlan]);
 
+        setIsSaving(false);
         if (error) {
             alert('Error saving plan: ' + error.message);
         } else {
@@ -138,97 +141,113 @@ export default function PlanManagement() {
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-                    <div className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-                        <h3 className="text-xl font-black mb-6">{editingPlan?.id ? 'Edit Plan' : 'New Plan'}</h3>
+            <SlideOver
+                isOpen={showModal}
+                onClose={() => { setShowModal(false); setEditingPlan(null); }}
+                title={editingPlan?.id ? "Edit Plan" : "Create New Plan"}
+                onSave={handleSave}
+                isSaving={isSaving}
+                saveLabel={editingPlan?.id ? "UPDATE PLAN" : "SAVE PLAN"}
+            >
+                <div className="space-y-8">
+                    <section className="space-y-6">
+                        <h3 className="text-xs font-black text-pink-500 tracking-[0.3em] uppercase border-l-2 border-pink-500 pl-4">Basic Information</h3>
                         
-                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Plan Name</label>
-                                    <input 
-                                        type="text" 
-                                        value={editingPlan?.name || ''} 
-                                        onChange={e => setEditingPlan({...editingPlan, name: e.target.value})}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50"
-                                        placeholder="e.g. User Pro"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Tier Name</label>
-                                    <input 
-                                        type="text" 
-                                        value={editingPlan?.tier || ''} 
-                                        onChange={e => setEditingPlan({...editingPlan, tier: e.target.value})}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50"
-                                        placeholder="e.g. Pro, Gold, KTV"
-                                    />
-                                </div>
-                            </div>
-
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Target Type</label>
-                                <select 
-                                    value={editingPlan?.type || 'user'} 
-                                    onChange={e => setEditingPlan({...editingPlan, type: e.target.value})}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50 appearance-none"
-                                >
-                                    <option value="user">User</option>
-                                    <option value="dancer">Dancer</option>
-                                    <option value="shop">Shop</option>
-                                </select>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Plan Display Name</label>
+                                <input 
+                                    type="text" 
+                                    value={editingPlan?.name || ''} 
+                                    onChange={e => setEditingPlan({...editingPlan, name: e.target.value})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
+                                    placeholder="e.g. Pro Package"
+                                />
                             </div>
-
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Monthly ($)</label>
-                                    <input 
-                                        type="number" 
-                                        value={editingPlan?.price_monthly || 0} 
-                                        onChange={e => setEditingPlan({...editingPlan, price_monthly: Number(e.target.value)})}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Yearly ($)</label>
-                                    <input 
-                                        type="number" 
-                                        value={editingPlan?.price_yearly || 0} 
-                                        onChange={e => setEditingPlan({...editingPlan, price_yearly: Number(e.target.value)})}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Custom ($)</label>
-                                    <input 
-                                        type="number" 
-                                        value={editingPlan?.price_custom || 0} 
-                                        onChange={e => setEditingPlan({...editingPlan, price_custom: Number(e.target.value)})}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold outline-none focus:border-pink-500/50"
-                                    />
-                                </div>
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Tier / Level</label>
+                                <input 
+                                    type="text" 
+                                    value={editingPlan?.tier || ''} 
+                                    onChange={e => setEditingPlan({...editingPlan, tier: e.target.value})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
+                                    placeholder="e.g. Gold"
+                                />
                             </div>
                         </div>
 
-                        <div className="mt-8 flex gap-4">
-                            <button 
-                                onClick={() => setShowModal(false)}
-                                className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-[10px] font-black tracking-widest transition-all uppercase"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleSave}
-                                className="flex-1 py-4 bg-pink-600 hover:bg-pink-500 rounded-2xl text-[10px] font-black tracking-widest transition-all uppercase shadow-lg shadow-pink-900/20"
-                            >
-                                Save Plan
-                            </button>
+                        <div>
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Account Type</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {['user', 'dancer', 'shop'].map((type) => (
+                                    <button
+                                        key={type}
+                                        onClick={() => setEditingPlan({...editingPlan, type})}
+                                        className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                            editingPlan?.type === type 
+                                            ? 'bg-pink-600 border-pink-500 text-white shadow-lg shadow-pink-900/20' 
+                                            : 'bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    </section>
+
+                    <section className="space-y-6 pt-8 border-t border-white/5">
+                        <h3 className="text-xs font-black text-pink-500 tracking-[0.3em] uppercase border-l-2 border-pink-500 pl-4">Pricing Models</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Monthly ($)</label>
+                                <input 
+                                    type="number" 
+                                    value={editingPlan?.price_monthly || 0} 
+                                    onChange={e => setEditingPlan({...editingPlan, price_monthly: Number(e.target.value)})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Yearly ($)</label>
+                                <input 
+                                    type="number" 
+                                    value={editingPlan?.price_yearly || 0} 
+                                    onChange={e => setEditingPlan({...editingPlan, price_yearly: Number(e.target.value)})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Custom ($)</label>
+                                <input 
+                                    type="number" 
+                                    value={editingPlan?.price_custom || 0} 
+                                    onChange={e => setEditingPlan({...editingPlan, price_custom: Number(e.target.value)})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="space-y-6 pt-8 border-t border-white/5 pb-12">
+                        <h3 className="text-xs font-black text-pink-500 tracking-[0.3em] uppercase border-l-2 border-pink-500 pl-4">Plan Features</h3>
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Feature List (one per line)</label>
+                            <textarea 
+                                rows={6}
+                                value={(editingPlan?.features || []).join('\n')}
+                                onChange={e => setEditingPlan({...editingPlan, features: e.target.value.split('\n').filter(f => f.trim())})}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-medium outline-none focus:border-pink-500/50 transition-all min-h-[150px]"
+                                placeholder="Unlimited messages&#10;Verified badge&#10;Priority support..."
+                            />
+                            <p className="text-[9px] text-zinc-500 italic uppercase font-bold tracking-widest flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-pink-500" />
+                                These features will be displayed on the pricing table.
+                            </p>
+                        </div>
+                    </section>
                 </div>
-            )}
+            </SlideOver>
         </div>
     );
 }

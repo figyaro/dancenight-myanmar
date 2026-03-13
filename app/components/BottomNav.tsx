@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 import { t } from '../../lib/i18n';
 
 export default function BottomNav() {
@@ -12,12 +13,12 @@ export default function BottomNav() {
 
     useEffect(() => {
         const fetchLanguage = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
+            const userId = await getEffectiveUserId();
+            if (userId) {
                 const { data } = await supabase
                     .from('users')
                     .select('language')
-                    .eq('id', user.id)
+                    .eq('id', userId)
                     .single();
                 if (data?.language) {
                     setLanguage(data.language);

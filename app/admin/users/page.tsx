@@ -6,6 +6,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 
 export default function UserManagement() {
     const [users, setUsers] = useState<any[]>([]);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -15,6 +16,20 @@ export default function UserManagement() {
 
     const fetchUsers = async () => {
         setLoading(true);
+        
+        // Fetch current user for role check using getSession for stability
+        const { data: { session } } = await supabase.auth.getSession();
+        const authId = session?.user?.id;
+        
+        if (authId) {
+            const { data: profile } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', authId)
+                .single();
+            setCurrentUser(profile);
+        }
+
         const { data, error } = await supabase
             .from('users')
             .select('*')
@@ -25,8 +40,16 @@ export default function UserManagement() {
         setLoading(false);
     };
 
-    const toggleRole = async (userId: string, currentRole: string) => {
-        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const ROLES = ['user', 'dancer', 'shop', 'admin', 'super admin'];
+    const ROLE_COLORS: Record<string, string> = {
+        'user': 'bg-zinc-800 text-zinc-500 border-zinc-700',
+        'dancer': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        'shop': 'bg-green-500/10 text-green-400 border-green-500/20',
+        'admin': 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+        'super admin': 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+    };
+
+    const updateRole = async (userId: string, newRole: string) => {
         const { error } = await supabase
             .from('users')
             .update({ role: newRole })
@@ -98,10 +121,8 @@ export default function UserManagement() {
                                         </div>
                                     </td>
                                     <td className="px-8 py-5">
-                                        <span className={`text-[10px] font-black px-2 py-1 rounded-md tracking-tighter ${
-                                            user.role === 'admin' 
-                                            ? 'bg-pink-500/20 text-pink-400 border border-pink-500/20' 
-                                            : 'bg-zinc-800 text-zinc-500'
+                                        <span className={`text-[10px] font-black px-2 py-1 rounded-md tracking-tighter border ${
+                                            ROLE_COLORS[user.role] || ROLE_COLORS['user']
                                         }`}>
                                             {user.role?.toUpperCase() || 'USER'}
                                         </span>
@@ -115,12 +136,25 @@ export default function UserManagement() {
                                         </p>
                                     </td>
                                     <td className="px-8 py-5 text-right">
-                                        <button 
-                                            onClick={() => toggleRole(user.id, user.role)}
-                                            className="text-[10px] font-black tracking-widest text-zinc-500 hover:text-pink-500 transition-colors uppercase"
-                                        >
-                                            Toggle Role
-                                        </button>
+                                        <div className="flex items-center justify-end gap-3">
+                                            {currentUser?.role === 'super admin' && (
+                                                <button 
+                                                    onClick={() => window.open(`/home?impersonate=${user.id}`, '_blank')}
+                                                    className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 transition-all uppercase tracking-widest"
+                                                >
+                                                    Access As
+                                                </button>
+                                            )}
+                                            <select 
+                                                value={user.role || 'user'}
+                                                onChange={(e) => updateRole(user.id, e.target.value)}
+                                                className="bg-zinc-900 border border-white/10 rounded-lg py-1 px-3 text-[10px] font-black uppercase tracking-widest outline-none focus:border-pink-500/50 transition-all cursor-pointer"
+                                            >
+                                                {ROLES.map(r => (
+                                                    <option key={r} value={r}>{r.toUpperCase()}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

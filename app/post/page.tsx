@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 import BottomNav from '../components/BottomNav';
 
 export default function PostPage() {
@@ -10,7 +11,7 @@ export default function PostPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // User state
-    const [user, setUser] = useState<any>(null);
+    const [userId, setUserId] = useState<string | null>(null);
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -37,17 +38,17 @@ export default function PostPage() {
             }
 
             try {
-                const { data: { user: authUser } } = await supabase.auth.getUser();
-                if (!authUser) {
+                const effectiveUserId = await getEffectiveUserId();
+                if (!effectiveUserId) {
                     router.push('/login');
                     return;
                 }
-                setUser(authUser);
+                setUserId(effectiveUserId);
 
                 const { data: profileData, error: profileError } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', authUser.id)
+                    .eq('id', effectiveUserId)
                     .single();
 
                 if (profileError) throw profileError;
@@ -85,7 +86,7 @@ export default function PostPage() {
         try {
             // 1. Upload media to Storage
             const fileExt = mediaFile.name.split('.').pop();
-            const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+            const fileName = `${userId}-${Date.now()}.${fileExt}`;
             const filePath = `posts/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
@@ -101,8 +102,8 @@ export default function PostPage() {
 
             // 3. Insert into DB
             const postData: any = {
-                user_id: user.id,
-                name: profile?.nickname || user.email?.split('@')[0],
+                user_id: userId,
+                name: profile?.nickname || profile?.name || 'User',
                 title: caption,
                 main_image_url: publicUrl,
                 area: area || 'Unknown',

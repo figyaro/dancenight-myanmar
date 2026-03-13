@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 import BottomNav from '../components/BottomNav';
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -44,8 +45,8 @@ function ChatContent() {
     useEffect(() => {
         const fetchConversations = async () => {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
+            const userId = await getEffectiveUserId();
+            if (!userId) {
                 setLoading(false);
                 return;
             }
@@ -55,7 +56,7 @@ function ChatContent() {
                 const { data: convs, error: convError } = await supabase
                     .from('conversations')
                     .select('*')
-                    .contains('participants', [user.id])
+                    .contains('participants', [userId])
                     .order('updated_at', { ascending: false });
 
                 if (convError) throw convError;
@@ -68,7 +69,7 @@ function ChatContent() {
 
                 // 2. Fetch partner profiles and last messages for each conversation
                 const enrichedConversations = await Promise.all(convs.map(async (conv) => {
-                    const partnerId = conv.participants.find((p: string) => p !== user.id);
+                    const partnerId = conv.participants.find((p: string) => p !== userId);
 
                     // Fetch partner user data
                     const { data: partnerData } = await supabase

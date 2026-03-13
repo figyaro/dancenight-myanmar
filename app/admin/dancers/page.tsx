@@ -17,12 +17,18 @@ export default function DancerManagement() {
         const { data, error } = await supabase
             .from('dancers')
             .select(`
-                *,
+                *
+                /*,
                 user:users(nickname, avatar_url)
+                */
             `)
             .order('created_at', { ascending: false });
         
-        if (error) console.error('Error fetching dancers:', error);
+        if (error) {
+            console.error('Error details:', error);
+            // Fallback for logging
+            alert('Error fetching dancers: ' + (error.message || JSON.stringify(error)));
+        }
         else setDancers(data || []);
         setLoading(false);
     };

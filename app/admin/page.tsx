@@ -19,7 +19,7 @@ export default function AdminDashboard() {
                     supabase.from('users').select('id', { count: 'exact', head: true }),
                     supabase.from('posts').select('id', { count: 'exact', head: true }),
                     supabase.from('events').select('id', { count: 'exact', head: true }),
-                    supabase.from('conversations').select('id', { count: 'exact', head: true }), // Using conversations for reservations/chats for now
+                    supabase.from('room_reservations').select('id', { count: 'exact', head: true }),
                 ]);
 
                 setStats({

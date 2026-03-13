@@ -5,19 +5,22 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BottomNav from '../components/BottomNav';
 import TopNav from '../components/TopNav';
+import { getEffectiveUserId } from '../../lib/auth-util';
 import { supabase } from '../../lib/supabase';
 import { t } from '../../lib/i18n';
 
 export default function Profile() {
     const [profile, setProfile] = useState<any>(null);
+    const [dancerData, setDancerData] = useState<any>(null);
+    const [userPosts, setUserPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
+                const userId = await getEffectiveUserId();
+                if (!userId) {
                     router.push('/login');
                     return;
                 }
@@ -26,11 +29,31 @@ export default function Profile() {
                 const { data, error } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', user.id)
+                    .eq('id', userId)
                     .single();
 
                 if (error) throw error;
-                if (data) setProfile(data);
+                if (data) {
+                    setProfile(data);
+                    
+                    // Fetch user posts
+                    const { data: postsData } = await supabase
+                        .from('posts')
+                        .select('*')
+                        .eq('user_id', userId)
+                        .order('created_at', { ascending: false });
+                    setUserPosts(postsData || []);
+
+                    // If dancer, fetch dancer-specific conditions
+                    if (data.role === 'dancer') {
+                        const { data: dData } = await supabase
+                            .from('dancers')
+                            .select('*')
+                            .eq('user_id', userId)
+                            .single();
+                        if (dData) setDancerData(dData);
+                    }
+                }
             } catch (err) {
                 console.error('Error fetching profile:', err);
             } finally {
@@ -44,6 +67,11 @@ export default function Profile() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
+    };
+
+    const isVideo = (url: string) => {
+        if (!url) return false;
+        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
     };
 
     if (loading) {
@@ -88,11 +116,24 @@ export default function Profile() {
                                 </div>
                             )}
                         </div>
+                        
+                        {/* Status Icon (Mind Icon) */}
                         {profile?.mind_icon && (
-                            <div className="absolute -bottom-2 -right-2 bg-zinc-800 p-2 rounded-full border border-zinc-700 text-xl shadow-lg leading-none">
+                            <div className="absolute -top-1 -left-1 bg-zinc-800 p-1.5 rounded-full border border-zinc-700 text-lg shadow-lg leading-none z-10">
                                 {profile.mind_icon}
                             </div>
                         )}
+
+                        {/* Edit Icon Overlay */}
+                        <Link 
+                            href="/profile/edit"
+                            className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-pink-600 border-2 border-black flex items-center justify-center text-white shadow-xl hover:bg-pink-500 transition-colors z-20"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                        </Link>
                     </div>
 
                     <h2 className="text-2xl font-bold">{profile?.nickname || profile?.name || 'Guest'}</h2>
@@ -139,74 +180,111 @@ export default function Profile() {
                     )}
                 </div>
 
-                {/* プロフィール編集ボタン */}
-                <Link href="/profile/edit" className="flex items-center justify-center w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-lg font-medium mb-6 transition-colors">
-                    {t('edit_profile', profile?.language)}
-                </Link>
+                {/* Dance Condition Tab (Sticky Note/Bookmark Style) */}
+                {profile?.role === 'dancer' && (
+                    <Link 
+                        href="/profile/conditions"
+                        className="fixed right-0 top-[140px] z-[100] flex items-center bg-pink-600 hover:bg-pink-500 text-white p-3 rounded-l-2xl shadow-[0_10px_30px_rgba(219,39,119,0.3)] border-y border-l border-white/20 transition-all duration-300 group overflow-hidden"
+                        style={{ width: 'fit-content' }}
+                    >
+                        {/* Text that slides in from the right when parent is hovered */}
+                        <div className="max-w-0 group-hover:max-w-[120px] transition-all duration-500 ease-in-out overflow-hidden whitespace-nowrap">
+                            <span className="text-[10px] font-black uppercase tracking-widest mr-3 block">Dance Setting</span>
+                        </div>
+                        
+                        {/* Gear icon that is always visible */}
+                        <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center group-hover:rotate-45 transition-transform flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </div>
+                    </Link>
+                )}
 
-                {/* 確定済みの予約 */}
-                <div className="bg-gradient-to-r from-pink-900/60 to-red-900/40 rounded-xl p-4 mb-4 border border-pink-800/30">
-                    <p className="text-pink-400 text-sm mb-1">確定済みの予約</p>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-bold">今夜 21:00 - Pioneer KTV</h3>
-                            <div className="flex items-center gap-2 mt-2">
-                                <div className="w-8 h-8 rounded-full bg-zinc-700 overflow-hidden">
-                                    <img
-                                        src="https://picsum.photos/id/1015/50/50"
-                                        alt="Dancer"
-                                        className="w-full h-full object-cover"
-                                    />
+                {/* ダンサー条件のサマリー表示 (Dancerのみ) */}
+                {profile?.role === 'dancer' && dancerData && (
+                    <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4 mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-black tracking-widest text-zinc-500 uppercase">My Conditions</h3>
+                            <span className="text-[10px] bg-pink-500/10 text-pink-500 px-2 py-0.5 rounded font-bold">Active</span>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex flex-wrap gap-1.5">
+                                {dancerData.condition_tags?.map((tag: string) => (
+                                    <span key={tag} className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-1 rounded-md border border-white/5">
+                                        #{tag}
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                    <p className="text-zinc-500 mb-0.5">Price</p>
+                                    <p className="font-bold text-pink-400">{dancerData.price_info || 'Not set'}</p>
                                 </div>
-                                <span className="text-sm text-gray-300">Aung San K-POP さんと合流予定</span>
+                                <div>
+                                    <p className="text-zinc-500 mb-0.5">Availability</p>
+                                    <p className="font-bold">{dancerData.availability_info || 'Not set'}</p>
+                                </div>
                             </div>
                         </div>
-                        {/* QRコードアイコン */}
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                            <rect x="2" y="2" width="8" height="8" rx="1" />
-                            <rect x="14" y="2" width="8" height="8" rx="1" />
-                            <rect x="2" y="14" width="8" height="8" rx="1" />
-                            <rect x="14" y="14" width="4" height="4" rx="0.5" />
-                            <rect x="20" y="14" width="2" height="2" />
-                            <rect x="14" y="20" width="2" height="2" />
-                            <rect x="20" y="20" width="2" height="2" />
-                        </svg>
                     </div>
+                )}
+
+                {/* Media Grid Section (User Posts) */}
+                <div className="mt-8">
+                    <div className="flex items-center justify-between mb-6 px-1">
+                        <h3 className="text-xs font-black tracking-[0.3em] text-zinc-500 uppercase">My Creations</h3>
+                        <span className="text-[10px] font-black text-pink-500 uppercase tracking-widest">{userPosts.length} POSTS</span>
+                    </div>
+
+                    {userPosts.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-1">
+                            {userPosts.map((post) => (
+                                <Link 
+                                    key={post.id} 
+                                    href={`/home?postId=${post.id}`}
+                                    className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
+                                >
+                                    {post.main_image_url ? (
+                                        isVideo(post.main_image_url) ? (
+                                            <div className="w-full h-full relative">
+                                                <video 
+                                                    src={post.main_image_url} 
+                                                    className="w-full h-full object-cover"
+                                                    muted
+                                                    playsInline
+                                                />
+                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <img 
+                                                src={post.main_image_url} 
+                                                className="w-full h-full object-cover" 
+                                                alt="" 
+                                            />
+                                        )
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                                            <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </Link>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-zinc-900/30 border border-dashed border-white/5 rounded-3xl py-12 text-center">
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">📸</div>
+                            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                            <Link href="/posts/new" className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block hover:underline">
+                                Share your first update
+                            </Link>
+                        </div>
+                    )}
                 </div>
-
-                {/* お気に入りのダンサー */}
-                <button className="w-full flex items-center justify-between bg-zinc-900 rounded-xl p-4 mb-3 hover:bg-zinc-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                            </svg>
-                        </div>
-                        <span className="font-medium">お気に入りのダンサー</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-400">
-                        <span className="text-sm">12人</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                    </div>
-                </button>
-
-                {/* 過去の利用履歴 */}
-                <button className="w-full flex items-center justify-between bg-zinc-900 rounded-xl p-4 mb-3 hover:bg-zinc-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="1 4 1 10 7 10" />
-                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                            </svg>
-                        </div>
-                        <span className="font-medium">過去の利用履歴</span>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                </button>
             </main>
             <BottomNav />
         </div>

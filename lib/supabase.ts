@@ -12,5 +12,13 @@ if (!isSupabaseConfigured) {
 
 export const supabase = createClient(
     isSupabaseConfigured ? supabaseUrl : 'https://placeholder.supabase.co',
-    isSupabaseConfigured ? supabaseKey : 'placeholder-key'
+    isSupabaseConfigured ? supabaseKey : 'placeholder-key',
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        }
+    }
 );

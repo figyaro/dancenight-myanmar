@@ -9,6 +9,7 @@ import ShopImagePlaceholder from '../../components/ShopImagePlaceholder';
 
 export default function ShopManagement() {
     const [shops, setShops] = useState<any[]>([]);
+    const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     
     // UI state
@@ -25,18 +26,33 @@ export default function ShopManagement() {
         address: '',
         description: '',
         owner_email: '',
-        owner_nickname: ''
+        owner_nickname: '',
+        plan_id: '',
+        phone: '',
+        holiday: '',
+        opening_hours: '',
+        main_image_url: ''
     });
 
     useEffect(() => {
         fetchShops();
+        fetchPlans();
     }, []);
+
+    const fetchPlans = async () => {
+        const { data } = await supabase
+            .from('plans')
+            .select('*')
+            .eq('type', 'shop')
+            .order('price_monthly', { ascending: true });
+        setPlans(data || []);
+    };
 
     const fetchShops = async () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('shops')
-            .select('*')
+            .select('*, plan:plans(name)')
             .order('name', { ascending: true });
         
         if (error) console.error('Error fetching shops:', error);
@@ -58,10 +74,44 @@ export default function ShopManagement() {
             address: '',
             description: '',
             owner_email: '',
-            owner_nickname: ''
+            owner_nickname: '',
+            plan_id: '',
+            phone: '',
+            holiday: '',
+            opening_hours: '',
+            main_image_url: ''
         });
         setIsAdding(true);
         setEditingShop(null);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const filePath = `shops/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('posts') // Reusing posts bucket for convenience as per existing setup
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('posts')
+                .getPublicUrl(filePath);
+
+            if (isAdding) {
+                setNewShop({ ...newShop, main_image_url: publicUrl });
+            } else {
+                setEditingShop({ ...editingShop, main_image_url: publicUrl });
+            }
+        } catch (error: any) {
+            alert('Error uploading image: ' + error.message);
+        }
     };
 
     const handleSave = async () => {
@@ -96,7 +146,12 @@ export default function ShopManagement() {
                     area: newShop.area,
                     location: newShop.location,
                     address: newShop.address,
-                    description: newShop.description
+                    description: newShop.description,
+                    phone: newShop.phone,
+                    holiday: newShop.holiday,
+                    opening_hours: newShop.opening_hours,
+                    main_image_url: newShop.main_image_url,
+                    plan_id: newShop.plan_id || (plans.find(p => p.name === 'Shop Free')?.id)
                 })
                 .select()
                 .single();
@@ -135,7 +190,12 @@ export default function ShopManagement() {
                     location: editingShop.location,
                     description: editingShop.description,
                     area: editingShop.area,
-                    address: editingShop.address
+                    address: editingShop.address,
+                    phone: editingShop.phone,
+                    holiday: editingShop.holiday,
+                    opening_hours: editingShop.opening_hours,
+                    main_image_url: editingShop.main_image_url,
+                    plan_id: editingShop.plan_id
                 })
                 .eq('id', editingShop.id)
                 .select();
@@ -179,6 +239,7 @@ export default function ShopManagement() {
                             <th className="px-8 py-6">Shop Name</th>
                             <th className="px-8 py-6">Location</th>
                             <th className="px-8 py-6">Category</th>
+                            <th className="px-8 py-6">Plan</th>
                             <th className="px-8 py-6">Status</th>
                             <th className="px-8 py-6 text-right">Actions</th>
                         </tr>
@@ -191,29 +252,45 @@ export default function ShopManagement() {
                                         <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl overflow-hidden border border-white/10">
                                             {shop.main_image_url ? <img src={shop.main_image_url} className="w-full h-full object-cover" /> : <ShopImagePlaceholder size="small" className="w-full h-full" />}
                                         </div>
-                                        <span className="font-bold text-sm">{shop.name}</span>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-sm">{shop.name}</span>
+                                            {shop.phone && <span className="text-[9px] text-zinc-500 font-medium">{shop.phone}</span>}
+                                        </div>
                                     </div>
                                 </td>
                                 <td className="px-8 py-5 text-xs text-zinc-400 font-bold">{shop.area || shop.location || 'N/A'}</td>
                                 <td className="px-8 py-5 text-xs text-zinc-400 font-bold">{shop.category || 'Nightlife'}</td>
+                                <td className="px-8 py-5">
+                                    <span className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-pink-600/10 text-pink-500 border border-pink-500/20 uppercase tracking-widest">
+                                        {shop.plan?.name || 'Free'}
+                                    </span>
+                                </td>
                                 <td className="px-8 py-5">
                                     <span className="text-[10px] font-black px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/10 uppercase">
                                         Active
                                     </span>
                                 </td>
                                 <td className="px-8 py-5 text-right">
-                                    <div className="flex justify-end gap-3">
+                                    <div className="flex justify-end gap-4">
                                         <Link 
                                             href={`/shopadmin/${shop.id}`}
-                                            className="text-[10px] font-black tracking-widest text-pink-500 hover:text-pink-400 transition-colors uppercase"
+                                            className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-500 hover:bg-pink-500 hover:text-white transition-all group/icon"
+                                            title="Manage Shop"
                                         >
-                                            Manage
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 20h9" />
+                                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                            </svg>
                                         </Link>
                                         <button 
                                             onClick={() => handleEdit(shop)}
-                                            className="text-[10px] font-black tracking-widest text-zinc-500 hover:text-white transition-colors uppercase"
+                                            className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-zinc-400 hover:bg-white/10 hover:text-white transition-all"
+                                            title="Edit Details"
                                         >
-                                            Edit
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </td>
@@ -242,6 +319,32 @@ export default function ShopManagement() {
                     <div className="space-y-6">
                         <h3 className="text-xs font-black text-pink-500 tracking-widest uppercase border-l-2 border-pink-500 pl-4">Shop Profile</h3>
                         
+                        {/* Main Image Upload */}
+                        <div>
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Shop Main Photo</label>
+                            <div className="flex items-center gap-6">
+                                <div className="w-24 h-24 rounded-2xl bg-zinc-800 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden relative group">
+                                    {(isAdding ? newShop.main_image_url : editingShop?.main_image_url) ? (
+                                        <img 
+                                            src={isAdding ? newShop.main_image_url : editingShop?.main_image_url} 
+                                            className="w-full h-full object-cover" 
+                                            alt="Shop Preview"
+                                        />
+                                    ) : (
+                                        <div className="text-zinc-600 text-xs">No Image</div>
+                                    )}
+                                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                                        <span className="text-[10px] font-bold text-white uppercase tracking-tighter text-center px-2">Click to Upload</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                    </label>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] text-zinc-500 font-medium">Recommended: 1200x800px or larger.</p>
+                                    <p className="text-[9px] text-zinc-500 font-medium">Wait for preview after selecting.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Shop Name</label>
                             <input 
@@ -263,7 +366,9 @@ export default function ShopManagement() {
                                 >
                                     <option value="Club">Club</option>
                                     <option value="KTV">KTV</option>
-                                    <option value="Restaurant">Restaurant</option>
+                                    <option value="Restaurant&Bar">Restaurant&Bar</option>
+                                    <option value="SPA">SPA</option>
+                                    <option value="Others">Others</option>
                                 </select>
                             </div>
                             <div>
@@ -278,6 +383,40 @@ export default function ShopManagement() {
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Phone</label>
+                                <input 
+                                    type="text" 
+                                    value={isAdding ? newShop.phone : (editingShop?.phone || '')} 
+                                    onChange={e => isAdding ? setNewShop({...newShop, phone: e.target.value}) : setEditingShop({...editingShop, phone: e.target.value})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50"
+                                    placeholder="09..."
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Closed (Holiday)</label>
+                                <input 
+                                    type="text" 
+                                    value={isAdding ? newShop.holiday : (editingShop?.holiday || '')} 
+                                    onChange={e => isAdding ? setNewShop({...newShop, holiday: e.target.value}) : setEditingShop({...editingShop, holiday: e.target.value})}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50"
+                                    placeholder="e.g. Sunday"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Opening Hours</label>
+                            <input 
+                                type="text" 
+                                value={isAdding ? newShop.opening_hours : (editingShop?.opening_hours || '')} 
+                                onChange={e => isAdding ? setNewShop({...newShop, opening_hours: e.target.value}) : setEditingShop({...editingShop, opening_hours: e.target.value})}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50"
+                                placeholder="e.g. 19:00 - 02:00"
+                            />
+                        </div>
+
                         <div>
                             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Location (Region/City)</label>
                             <input 
@@ -290,13 +429,13 @@ export default function ShopManagement() {
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Full Address</label>
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Full Address (google map)</label>
                             <textarea 
                                 rows={2}
                                 value={isAdding ? newShop.address : (editingShop?.address || '')} 
                                 onChange={e => isAdding ? setNewShop({...newShop, address: e.target.value}) : setEditingShop({...editingShop, address: e.target.value})}
                                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-medium outline-none focus:border-pink-500/50"
-                                placeholder="Full street address..."
+                                placeholder="Full street address for google map..."
                             />
                         </div>
 
@@ -309,6 +448,31 @@ export default function ShopManagement() {
                                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-medium outline-none focus:border-pink-500/50"
                                 placeholder="Tell us about the shop..."
                             />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">Subscription Plan</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {plans.map((plan) => (
+                                    <button
+                                        key={plan.id}
+                                        onClick={() => {
+                                            const planId = plan.id;
+                                            if (isAdding) setNewShop({...newShop, plan_id: planId} as any);
+                                            else setEditingShop({...editingShop, plan_id: planId});
+                                        }}
+                                        className={`py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all text-left flex justify-between items-center ${
+                                            (isAdding ? newShop.plan_id === plan.id : editingShop?.plan_id === plan.id)
+                                            ? 'bg-pink-600 border-pink-500 text-white shadow-lg shadow-pink-900/20' 
+                                            : 'bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {plan.name}
+                                        {(isAdding ? newShop.plan_id === plan.id : editingShop?.plan_id === plan.id) && <span>✓</span>}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[9px] text-zinc-500 mt-2 italic">* Plans grant specific features and listing priorities.</p>
                         </div>
                     </div>
 
@@ -347,3 +511,4 @@ export default function ShopManagement() {
         </div>
     );
 }
+

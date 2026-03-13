@@ -27,6 +27,7 @@ export default function Discover() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('newest');
+    const [isSearchVisible, setIsSearchVisible] = useState(false);
 
     useEffect(() => {
         fetchPosts();
@@ -62,6 +63,31 @@ export default function Discover() {
         post.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Auto-play on scroll logic
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    const video = entry.target.querySelector('video');
+                    if (!video) return;
+
+                    if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                        video.play().catch(() => {});
+                    } else {
+                        video.pause();
+                        video.currentTime = 0;
+                    }
+                });
+            },
+            { threshold: [0, 0.5, 1.0] }
+        );
+
+        const videoContainers = document.querySelectorAll('.video-container');
+        videoContainers.forEach((container) => observer.observe(container));
+
+        return () => observer.disconnect();
+    }, [filteredPosts, loading]);
+
     return (
         <div className="bg-black min-h-screen text-white">
             {/* ヘッダー */}
@@ -71,46 +97,50 @@ export default function Discover() {
                         <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-400">
                             DISCOVER
                         </h1>
-                        <button className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 border border-white/5">
+                        <button 
+                            onClick={() => setIsSearchVisible(!isSearchVisible)}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${isSearchVisible ? 'bg-pink-600 border-pink-500 text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}
+                        >
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="4" y1="21" x2="4" y2="14" />
-                                <line x1="4" y1="10" x2="4" y2="3" />
-                                <line x1="12" y1="21" x2="12" y2="12" />
-                                <line x1="12" y1="8" x2="12" y2="3" />
-                                <line x1="20" y1="21" x2="20" y2="16" />
-                                <line x1="20" y1="12" x2="20" y2="3" />
-                                <line x1="1" y1="14" x2="7" y2="14" />
-                                <line x1="9" y1="8" x2="15" y2="8" />
-                                <line x1="17" y1="16" x2="23" y2="16" />
+                                {isSearchVisible ? (
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                ) : (
+                                    <>
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </>
+                                )}
                             </svg>
                         </button>
                     </div>
 
                     {/* 検索バー */}
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 bg-pink-500/20 blur-xl scale-95 opacity-50" />
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isSearchVisible ? 'max-h-24 opacity-100 mb-6' : 'max-h-0 opacity-0 mb-0'}`}>
                         <div className="relative">
-                            <svg
-                                className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            <input
-                                type="text"
-                                placeholder="エリア、名前、特徴で探索..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 transition-all"
-                            />
+                            <div className="absolute inset-0 bg-pink-500/20 blur-xl scale-95 opacity-50" />
+                            <div className="relative">
+                                <svg
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="エリア、名前、特徴で探索..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-xs font-bold placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 transition-all"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -151,11 +181,30 @@ export default function Discover() {
                                 className="relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-pointer active:scale-95 transition-transform bg-zinc-900"
                             >
                                 {post.main_image_url ? (
-                                    <img
-                                        src={post.main_image_url}
-                                        alt={post.name}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                    />
+                                    post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                                        <div className="relative w-full h-full video-container">
+                                            <video 
+                                                src={post.main_image_url} 
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                muted
+                                                playsInline
+                                                onMouseEnter={(e) => e.currentTarget.play()}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.pause();
+                                                    e.currentTarget.currentTime = 0;
+                                                }}
+                                            />
+                                            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={post.main_image_url}
+                                            alt={post.name}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                        />
+                                    )
                                 ) : (
                                     <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
