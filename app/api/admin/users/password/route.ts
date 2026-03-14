@@ -57,13 +57,32 @@ export async function POST(req: Request) {
 
         console.log('[AuthLink] Authorization granted. Proceeding with operation for user:', userId);
 
-        // Perform the password update using Auth Admin API
+        // 1. Explicitly fetch the target user's Auth metadata to check their status
+        const { data: authUser, error: authFetchError } = await supabaseAdmin.auth.admin.getUserById(userId);
+        console.log('[AuthLink] Target Auth User status:', { 
+            exists: !!authUser?.user, 
+            email_confirmed: authUser?.user?.email_confirmed_at,
+            last_sign_in: authUser?.user?.last_sign_in_at,
+            banned_until: authUser?.user?.banned_until,
+            error: authFetchError?.message 
+        });
+
+        // 2. Perform the password update using Auth Admin API
+        // Added email_confirm: true to see if it bypasses any 'unconfirmed' restrictions
         const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
-            { password: newPassword }
+            { 
+                password: newPassword,
+                email_confirm: true 
+            }
         );
 
         if (error) {
+            console.error('[AuthLink] Supabase Update Error Details:', {
+                message: error.message,
+                status: (error as any).status, // GoTrue error usually has status
+                name: (error as any).name
+            });
             // Handle "User not found" by attempting to create the Auth record
             if (error.message.includes('User not found')) {
                 // 1. Fetch user data from database for backup
