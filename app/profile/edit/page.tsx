@@ -73,20 +73,15 @@ export default function EditProfile() {
 
                     const newFile = new File([blob], `${userId}-${Date.now()}.jpeg`, { type: 'image/jpeg' });
 
-                    const { error: uploadError } = await supabase.storage
-                        .from('avatars')
-                        .upload(newFile.name, newFile);
+                    const { uploadMedia } = await import('../../../lib/media-upload');
+                    const { url, error } = await uploadMedia(newFile, 'avatars');
 
-                    if (uploadError) {
-                        console.error('Upload Error:', uploadError);
-                        throw new Error(`アップロードに失敗しました (Storageのavatarsバケットが存在するか、Public設定になっているか確認してください): ${uploadError.message}`);
+                    if (error) {
+                        console.error('Upload Error:', error);
+                        throw new Error(`アップロードに失敗しました: ${error}`);
                     }
 
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('avatars')
-                        .getPublicUrl(newFile.name);
-
-                    setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+                    setFormData(prev => ({ ...prev, avatar_url: url }));
                     setCropImageSrc(null); // クロップモーダルを閉じる
                 } catch (innerError: any) {
                     console.error('Crop inner error:', innerError);

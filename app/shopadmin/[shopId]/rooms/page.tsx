@@ -101,19 +101,11 @@ export default function RoomManagement() {
 
             // Handle image upload if new file
             if (mediaFile) {
-                const fileExt = mediaFile.name.split('.').pop();
-                const fileName = `rooms/${shopId}/${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('shops')
-                    .upload(fileName, mediaFile);
+                const { uploadMedia } = await import('../../../../lib/media-upload');
+                const { url, error: uploadError } = await uploadMedia(mediaFile, `rooms/${shopId}`);
 
-                if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('shops')
-                    .getPublicUrl(fileName);
-                
-                image_url = publicUrl;
+                if (uploadError) throw new Error(`Upload failed: ${uploadError}`);
+                image_url = url;
             }
 
             const roomData = {

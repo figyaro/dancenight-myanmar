@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 import LoadingScreen from '../../../components/LoadingScreen';
@@ -61,8 +61,7 @@ export default function ShopEventManagement() {
             const { data, error } = await supabase
                 .from('events')
                 .select('*')
-                .eq('shop_id', shopId)
-                .order('date', { ascending: false });
+                .eq('shop_id', shopId);
             
             if (error) throw error;
             setEvents(data || []);
@@ -73,6 +72,21 @@ export default function ShopEventManagement() {
             setLoading(false);
         }
     };
+
+    const sortedEvents = useMemo(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const upcoming = events
+            .filter(e => new Date(e.date) >= now)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        const past = events
+            .filter(e => new Date(e.date) < now)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return [...upcoming, ...past];
+    }, [events]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -98,19 +112,11 @@ export default function ShopEventManagement() {
 
             // Handle image upload if new file
             if (mediaFile) {
-                const fileExt = mediaFile.name.split('.').pop();
-                const fileName = `events/${shopId}/${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('shops')
-                    .upload(fileName, mediaFile);
+                const { uploadMedia } = await import('../../../../lib/media-upload');
+                const { url, error: uploadError } = await uploadMedia(mediaFile, `events/${shopId}`);
 
-                if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('shops')
-                    .getPublicUrl(fileName);
-                
-                image_url = publicUrl;
+                if (uploadError) throw new Error(`Upload failed: ${uploadError}`);
+                image_url = url;
             }
 
             const eventData = {
@@ -210,58 +216,74 @@ export default function ShopEventManagement() {
             </div>
 
             {/* Event List Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {events.map((event) => (
-                    <div key={event.id} className="group bg-zinc-900/40 border border-white/5 rounded-3xl overflow-hidden hover:border-pink-500/30 transition-all duration-500 backdrop-blur-xl flex flex-col">
-                        <div className="aspect-video relative overflow-hidden">
-                            {event.image_url ? (
-                                <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                            ) : (
-                                <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-500 italic text-xs uppercase tracking-widest">No Image</div>
-                            )}
-                            <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest border border-white/10">
-                                {event.status}
-                            </div>
-                            <div className="absolute bottom-4 left-4">
-                                <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] drop-shadow-lg">
-                                    {new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="p-6 flex-1 flex flex-col justify-between">
-                            <div>
-                                <h3 className="text-xl font-black tracking-tight mb-2">{event.title}</h3>
-                                <p className="text-zinc-400 text-xs line-clamp-2 font-medium mb-4">
-                                    {event.description || 'No description provided.'}
-                                </p>
-                                <div className="space-y-2 mb-6">
-                                    <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                        <span className="text-pink-500">📍</span> {event.place || event.location || 'Venue TBD'}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                {sortedEvents.map((event: Event) => {
+                    const isPast = new Date(event.date) < new Date(new Date().setHours(0,0,0,0));
+                    return (
+                        <div key={event.id} className={`group bg-zinc-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden hover:border-pink-500/30 transition-all duration-700 backdrop-blur-3xl flex flex-col ${isPast ? 'opacity-50 grayscale hover:grayscale-0 hover:opacity-100' : ''}`}>
+                            <div className="aspect-[16/10] relative overflow-hidden">
+                                {event.image_url ? (
+                                    <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                                ) : (
+                                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-500 italic text-[10px] font-black uppercase tracking-widest">No Poster</div>
+                                )}
+                                
+                                <div className="absolute top-6 left-6 flex flex-col gap-2">
+                                    <div className="px-4 py-1.5 bg-black/60 backdrop-blur-xl rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border border-white/10 w-fit">
+                                        {event.status}
                                     </div>
-                                    <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                        <span className="text-pink-500">💰</span> {event.fee || 'Free Entrance'}
-                                    </div>
+                                    {isPast && (
+                                        <div className="px-4 py-1.5 bg-zinc-800/80 backdrop-blur-xl rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border border-white/10 w-fit text-zinc-400">
+                                            EVENT PASSED
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
+                                
+                                <div className="absolute bottom-6 left-6 right-6">
+                                    <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] mb-2 drop-shadow-2xl">
+                                        {new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                    <h3 className="text-2xl font-black tracking-tighter line-clamp-1 truncate drop-shadow-2xl">{event.title}</h3>
                                 </div>
                             </div>
                             
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={() => openEditModal(event)}
-                                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 border border-white/5"
-                                >
-                                    <EditIcon /> EDIT
-                                </button>
-                                <button 
-                                    onClick={() => deleteEvent(event.id)}
-                                    className="w-12 h-12 bg-red-500/5 hover:bg-red-500/10 rounded-xl flex items-center justify-center text-red-500/40 hover:text-red-500 transition-all border border-red-500/10 hover:border-red-500/20"
-                                >
-                                    <TrashIcon />
-                                </button>
+                            <div className="p-8 flex-1 flex flex-col">
+                                <p className="text-zinc-500 text-xs line-clamp-2 font-bold mb-8 leading-relaxed">
+                                    {event.description || 'Elevate your night with our premium experience.'}
+                                </p>
+                                
+                                <div className="space-y-4 mb-10 flex-1">
+                                    <div className="flex items-center gap-4 text-[10px] text-zinc-400 font-black uppercase tracking-widest">
+                                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-sm">📍</div>
+                                        <span className="truncate">{event.place || event.location || 'VENUE TBD'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-[10px] text-zinc-400 font-black uppercase tracking-widest">
+                                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-sm">💰</div>
+                                        <span>{event.fee || 'FREE ENTRANCE'}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-4 pt-6 border-t border-white/5">
+                                    <button 
+                                        onClick={() => openEditModal(event)}
+                                        className="flex-1 h-14 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2 border border-white/5 group/btn"
+                                    >
+                                        <div className="group-hover/btn:rotate-12 transition-transform"><EditIcon /></div>
+                                        EDIT
+                                    </button>
+                                    <button 
+                                        onClick={() => deleteEvent(event.id)}
+                                        className="w-14 h-14 bg-red-500/5 hover:bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500/40 hover:text-red-500 transition-all border border-red-500/10 hover:border-red-500/20"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {events.length === 0 && (

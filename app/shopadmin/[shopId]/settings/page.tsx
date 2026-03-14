@@ -51,21 +51,12 @@ export default function ShopSettings() {
         if (!file) return;
 
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const filePath = `shops/${fileName}`;
+            const { uploadMedia } = await import('../../../../lib/media-upload');
+            const { url, error } = await uploadMedia(file, 'shops');
 
-            const { error: uploadError } = await supabase.storage
-                .from('posts')
-                .upload(filePath, file);
+            if (error) throw new Error(error);
 
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('posts')
-                .getPublicUrl(filePath);
-
-            setShop({ ...shop, main_image_url: publicUrl });
+            setShop({ ...shop, main_image_url: url });
         } catch (error: any) {
             alert('Error uploading image: ' + error.message);
         }

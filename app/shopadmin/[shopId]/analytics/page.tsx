@@ -13,13 +13,6 @@ interface AnalyticsEvent {
     post_id?: string;
 }
 
-interface DailyStat {
-    date: string;
-    impressions: number;
-    actions: number;
-    engagement: number;
-}
-
 export default function ShopAnalytics() {
     const { shopId } = useParams();
     const [loading, setLoading] = useState(true);

@@ -62,6 +62,51 @@ export default function UserManagement() {
         }
     };
 
+    const sendResetEmail = async (email: string) => {
+        if (!email) {
+            alert('User email is required to send reset link.');
+            return;
+        }
+        
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+        if (error) {
+            alert('Error sending reset email: ' + error.message);
+        } else {
+            alert('Password reset email sent successfully to ' + email);
+        }
+    };
+
+    const forcePasswordChange = async (userId: string) => {
+        const newPassword = window.prompt('Enter new password for this user (Min 6 chars):');
+        if (!newPassword) return;
+        if (newPassword.length < 6) {
+            alert('Password too short. Minimum 6 characters.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/admin/users/password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId,
+                    newPassword,
+                    adminId: currentUser?.id
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Failed to update password');
+
+            alert('Password updated successfully.');
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        }
+    };
+
     const filteredUsers = users.filter(u => 
         u.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -138,13 +183,30 @@ export default function UserManagement() {
                                     <td className="px-8 py-5 text-right">
                                         <div className="flex items-center justify-end gap-3">
                                             {currentUser?.role === 'super admin' && (
-                                                <button 
-                                                    onClick={() => window.open(`/home?impersonate=${user.id}`, '_blank')}
-                                                    className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 transition-all uppercase tracking-widest"
-                                                >
-                                                    Access As
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => window.open(`/home?impersonate=${user.id}`, '_blank')}
+                                                        className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 transition-all uppercase tracking-widest"
+                                                        title="Impersonate User"
+                                                    >
+                                                        Login
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => forcePasswordChange(user.id)}
+                                                        className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 transition-all uppercase tracking-widest"
+                                                        title="Force Password Change"
+                                                    >
+                                                        Key
+                                                    </button>
+                                                </div>
                                             )}
+                                            <button 
+                                                onClick={() => sendResetEmail(user.email)}
+                                                className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 border border-white/5 hover:bg-zinc-700 transition-all uppercase tracking-widest"
+                                                title="Send Reset Email"
+                                            >
+                                                Reset
+                                            </button>
                                             <select 
                                                 value={user.role || 'user'}
                                                 onChange={(e) => updateRole(user.id, e.target.value)}

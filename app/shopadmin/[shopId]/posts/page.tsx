@@ -77,25 +77,10 @@ export default function ShopPostManagement() {
 
             // 1. Upload Media if exists
             if (mediaFile) {
-                const fileExt = mediaFile.name.split('.').pop();
-                const fileName = `${userId || 'shop'}-${Date.now()}.${fileExt}`;
-                
-                const { error: uploadError } = await supabase.storage
-                    .from('posts')
-                    .upload(fileName, mediaFile, {
-                        upsert: false,
-                        onUploadProgress: (progress: { loaded: number; total: number }) => {
-                            const percent = (progress.loaded / progress.total) * 100;
-                            setUploadProgress(percent);
-                        }
-                    } as any);
+                const { uploadMedia } = await import('../../../../lib/media-upload');
+                const { url, error: uploadError } = await uploadMedia(mediaFile, 'posts');
 
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl: url } } = supabase.storage
-                    .from('posts')
-                    .getPublicUrl(fileName);
-                
+                if (uploadError) throw new Error(`Upload failed: ${uploadError}`);
                 publicUrl = url;
             }
 

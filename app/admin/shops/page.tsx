@@ -90,24 +90,15 @@ export default function ShopManagement() {
         if (!file) return;
 
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const filePath = `shops/${fileName}`;
+            const { uploadMedia } = await import('../../../lib/media-upload');
+            const { url, error } = await uploadMedia(file, 'shops');
 
-            const { error: uploadError } = await supabase.storage
-                .from('posts') // Reusing posts bucket for convenience as per existing setup
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('posts')
-                .getPublicUrl(filePath);
+            if (error) throw new Error(error);
 
             if (isAdding) {
-                setNewShop({ ...newShop, main_image_url: publicUrl });
+                setNewShop({ ...newShop, main_image_url: url });
             } else {
-                setEditingShop({ ...editingShop, main_image_url: publicUrl });
+                setEditingShop({ ...editingShop, main_image_url: url });
             }
         } catch (error: any) {
             alert('Error uploading image: ' + error.message);

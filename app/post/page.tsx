@@ -84,21 +84,13 @@ export default function PostPage() {
         setError(null);
 
         try {
-            // 1. Upload media to Storage
-            const fileExt = mediaFile.name.split('.').pop();
-            const fileName = `${userId}-${Date.now()}.${fileExt}`;
-            const filePath = `posts/${fileName}`;
+            // 1 & 2. Upload media to Bunny.net via utility
+            const { uploadMedia } = await import('../../lib/media-upload');
+            const { url, error: uploadError } = await uploadMedia(mediaFile, 'posts');
 
-            const { error: uploadError } = await supabase.storage
-                .from('posts')
-                .upload(fileName, mediaFile);
+            if (uploadError) throw new Error(`アップロード失敗: ${uploadError}`);
 
-            if (uploadError) throw new Error(`アップロード失敗: ${uploadError.message}`);
-
-            // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('posts')
-                .getPublicUrl(fileName);
+            const publicUrl = url;
 
             // 3. Insert into DB
             const postData: any = {

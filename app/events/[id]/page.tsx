@@ -116,19 +116,18 @@ export default function EventDetail() {
 
             {/* Hero Image Section */}
             <div className="relative w-full h-[40vh] overflow-hidden">
-                {event.image_url ? (
+                {event.image_url && event.image_url.trim() !== '' ? (
                     <img
                         src={event.image_url}
                         alt={event.title}
                         className="w-full h-full object-cover"
                     />
                 ) : (
-                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-700">
-                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
+                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-800">
+                         <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                            <circle cx="9" cy="9" r="2" />
+                            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                         </svg>
                     </div>
                 )}
