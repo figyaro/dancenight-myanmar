@@ -46,6 +46,84 @@ export async function POST(req: Request) {
         );
 
         if (error) {
+            // Handle "User not found" by attempting to create the Auth record
+            if (error.message.includes('User not found')) {
+                // 1. Fetch user data from database for backup
+                const { data: userData, error: fetchError } = await supabaseAdmin
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (fetchError || !userData?.email) {
+                    return NextResponse.json({ error: 'User found in database but email is missing or fetch failed.' }, { status: 404 });
+                }
+
+                // 2. Temporarily remove the user from public.users to avoid trigger conflict
+                console.log(`[AuthLink] Attempting to delete existing record for ${userId}`);
+                const { error: deleteError, count } = await supabaseAdmin
+                    .from('users')
+                    .delete({ count: 'exact' })
+                    .eq('id', userId);
+
+                if (deleteError) {
+                    console.error('[AuthLink] Delete failed:', deleteError);
+                    return NextResponse.json({ error: `Failed to clear existing record: ${deleteError.message}` }, { status: 500 });
+                }
+                console.log(`[AuthLink] Delete successful. Rows affected: ${count}`);
+
+                // 2b. DOUBLE CHECK that it's really gone
+                const { data: checkData } = await supabaseAdmin
+                    .from('users')
+                    .select('id')
+                    .eq('id', userId)
+                    .maybeSingle();
+                
+                if (checkData) {
+                    console.error('[AuthLink] CRITICAL: Row still exists after delete! Likely foreign key restriction.');
+                    return NextResponse.json({ 
+                        error: 'Failed to link Auth: The user record could not be removed (likely due to existing posts, bookings, or other linked data). Please delete the user\'s data first or contact support.' 
+                    }, { status: 500 });
+                }
+
+                // 3. Create the Auth record with the same ID
+                console.log(`[AuthLink] Proceeding to create Auth record for ${userData.email} with ID ${userId}`);
+                const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                    id: userId,
+                    email: userData.email,
+                    password: newPassword,
+                    email_confirm: true
+                });
+
+                if (createError) {
+                    console.error('[AuthLink] Auth createUser failed:', createError);
+                    // Critical: If Auth creation fails, we MUST try to restore the original record
+                    await supabaseAdmin.from('users').insert([userData]);
+                    return NextResponse.json({ error: `Failed to create Auth: ${createError.message}` }, { status: 500 });
+                }
+                console.log(`[AuthLink] Auth record created successfully:`, authData?.user?.id);
+
+                // 4. Update the newly created record with original data to preserve role, etc.
+                console.log(`[AuthLink] Restoring user attributes for ${userId}`);
+                const { error: restoreError } = await supabaseAdmin
+                    .from('users')
+                    .update({
+                        nickname: userData.nickname,
+                        role: userData.role,
+                        avatar_url: userData.avatar_url,
+                        language: userData.language,
+                        location: userData.location,
+                    })
+                    .eq('id', userId);
+
+                if (restoreError) {
+                    console.error('Failed to restore user attributes:', restoreError);
+                    // We don't fail the whole request here as the Auth record is already created
+                }
+
+                return NextResponse.json({ message: 'Auth account successfully created and linked with data preservation.' });
+            }
+
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
