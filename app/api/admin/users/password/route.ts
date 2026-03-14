@@ -41,14 +41,18 @@ export async function POST(req: Request) {
 
         if (adminError) {
             console.error('[AuthLink] Admin fetch error:', adminError);
-            return NextResponse.json({ error: `Unauthorized: Admin check failed - ${adminError.message}` }, { status: 403 });
+            return NextResponse.json({ 
+                error: `DEBUG_ERR_ADMIN_FETCH: ${adminError.message}` 
+            }, { status: 403 });
         }
 
         console.log('[AuthLink] Requester profile found:', adminProfile);
 
         if (adminProfile?.role !== 'super admin') {
             console.warn('[AuthLink] Requester is NOT a super admin. Role:', adminProfile?.role);
-            return NextResponse.json({ error: `Unauthorized. Role '${adminProfile?.role}' is not allowed to force password changes.` }, { status: 403 });
+            return NextResponse.json({ 
+                error: `DEBUG_ERR_ROLE_MISMATCH: Role is '${adminProfile?.role}'` 
+            }, { status: 403 });
         }
 
         console.log('[AuthLink] Authorization granted. Proceeding with operation for user:', userId);

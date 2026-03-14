@@ -107,7 +107,8 @@ export default function UserManagement() {
 
             alert('Password updated successfully.');
         } catch (err: any) {
-            alert('Error: ' + err.message);
+            console.error('Password Change UI Error:', err);
+            alert('Password update failed.\nDetails: ' + err.message);
         }
     };
 
