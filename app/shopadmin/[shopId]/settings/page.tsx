@@ -29,6 +29,7 @@ export default function ShopSettings() {
     const { shopId } = useParams();
     const [shop, setShop] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
 
     useEffect(() => {
@@ -50,15 +51,23 @@ export default function ShopSettings() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // 1. Set a local preview immediately
+        const localUrl = URL.createObjectURL(file);
+        setShop({ ...shop, main_image_url: localUrl });
+        setIsUploading(true);
+
         try {
             const { uploadMedia } = await import('../../../../lib/media-upload');
             const { url, error } = await uploadMedia(file, 'shops');
 
             if (error) throw new Error(error);
 
+            // 2. Set the actual CDN URL
             setShop({ ...shop, main_image_url: url });
         } catch (error: any) {
             alert('Error uploading image: ' + error.message);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -154,13 +163,26 @@ export default function ShopSettings() {
                         <div className="flex items-center gap-10">
                             <div className="w-64 aspect-[3/2] rounded-3xl bg-zinc-800 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden relative group shadow-2xl">
                                 {shop?.main_image_url ? (
-                                    <img src={shop.main_image_url} className="w-full h-full object-cover" alt="Shop Preview" />
+                                    <img 
+                                        key={shop.main_image_url}
+                                        src={shop.main_image_url} 
+                                        className={`w-full h-full object-cover transition-opacity duration-300 ${isUploading ? 'opacity-40' : 'opacity-100'}`} 
+                                        alt="Shop Preview" 
+                                    />
                                 ) : (
                                     <div className="text-zinc-600 text-xs font-bold">NO MAIN PHOTO</div>
                                 )}
+                                
+                                {isUploading && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                                        <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mb-2" />
+                                        <span className="text-[10px] font-black text-white uppercase tracking-widest">Uploading...</span>
+                                    </div>
+                                )}
+
                                 <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity backdrop-blur-sm">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Update Photo</span>
-                                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">{isUploading ? 'Processing...' : 'Update Photo'}</span>
+                                    {!isUploading && <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />}
                                 </label>
                             </div>
                             <div className="space-y-3">

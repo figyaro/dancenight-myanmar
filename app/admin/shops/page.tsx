@@ -16,6 +16,7 @@ export default function ShopManagement() {
     const [editingShop, setEditingShop] = useState<any>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Form state for new shop/user
     const [newShop, setNewShop] = useState({
@@ -89,12 +90,22 @@ export default function ShopManagement() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // 1. Immediate local preview
+        const localUrl = URL.createObjectURL(file);
+        if (isAdding) {
+            setNewShop({ ...newShop, main_image_url: localUrl });
+        } else {
+            setEditingShop({ ...editingShop, main_image_url: localUrl });
+        }
+        setIsUploading(true);
+
         try {
             const { uploadMedia } = await import('../../../lib/media-upload');
             const { url, error } = await uploadMedia(file, 'shops');
 
             if (error) throw new Error(error);
 
+            // 2. Set actual CDN URL
             if (isAdding) {
                 setNewShop({ ...newShop, main_image_url: url });
             } else {
@@ -102,6 +113,8 @@ export default function ShopManagement() {
             }
         } catch (error: any) {
             alert('Error uploading image: ' + error.message);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -317,16 +330,26 @@ export default function ShopManagement() {
                                 <div className="w-24 h-24 rounded-2xl bg-zinc-800 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden relative group">
                                     {(isAdding ? newShop.main_image_url : editingShop?.main_image_url) ? (
                                         <img 
+                                            key={isAdding ? newShop.main_image_url : editingShop?.main_image_url}
                                             src={isAdding ? newShop.main_image_url : editingShop?.main_image_url} 
-                                            className="w-full h-full object-cover" 
+                                            className={`w-full h-full object-cover transition-opacity ${isUploading ? 'opacity-40' : 'opacity-100'}`} 
                                             alt="Shop Preview"
                                         />
                                     ) : (
-                                        <div className="text-zinc-600 text-xs">No Image</div>
+                                        <div className="text-zinc-600 text-[10px] font-black uppercase">No Image</div>
                                     )}
+
+                                    {isUploading && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                            <div className="w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                                        </div>
+                                    )}
+
                                     <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                                        <span className="text-[10px] font-bold text-white uppercase tracking-tighter text-center px-2">Click to Upload</span>
-                                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                        <span className="text-[9px] font-black text-white uppercase tracking-tighter text-center px-1">
+                                            {isUploading ? 'Wait...' : 'Choose'}
+                                        </span>
+                                        {!isUploading && <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />}
                                     </label>
                                 </div>
                                 <div className="space-y-1">
