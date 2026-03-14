@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TopNav from '../../components/TopNav';
 import BottomNav from '../../components/BottomNav';
 import { supabase } from '../../../lib/supabase';
 import EventForm from '../../components/EventForm';
 
-export default function CreateEvent() {
+function CreateEventContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get('edit');
@@ -78,5 +78,17 @@ export default function CreateEvent() {
             </main>
             <BottomNav />
         </div>
+    );
+}
+
+export default function CreateEvent() {
+    return (
+        <Suspense fallback={
+            <div className="bg-black min-h-screen text-white flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" />
+            </div>
+        }>
+            <CreateEventContent />
+        </Suspense>
     );
 }
