@@ -10,10 +10,17 @@ export async function POST(req: Request) {
         }
 
         // Initialize Supabase with Service Role Key for Admin operations
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-            process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-            {
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+        if (!serviceRoleKey || !supabaseUrl) {
+            console.error('Missing Supabase configuration:', { hasServiceKey: !!serviceRoleKey, hasUrl: !!supabaseUrl });
+            return NextResponse.json({ 
+                error: 'Server configuration missing: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL.' 
+            }, { status: 500 });
+        }
+
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
                 auth: {
                     autoRefreshToken: false,
                     persistSession: false
