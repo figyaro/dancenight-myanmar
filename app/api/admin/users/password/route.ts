@@ -161,7 +161,18 @@ export async function POST(req: Request) {
                 return NextResponse.json({ message: 'Auth account successfully created and linked with data preservation.' });
             }
 
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            // --- DEEP DEBUG: Return everything to the frontend ---
+            const debugPayload = {
+                supabase_error: error.message,
+                supabase_status: (error as any).status || 'unknown',
+                target_user_exists: !!authUser?.user,
+                target_user_banned: authUser?.user?.banned_until || 'no',
+                target_user_email_confirmed: authUser?.user?.email_confirmed_at || 'no',
+                fetch_error: authFetchError?.message || 'none'
+            };
+            return NextResponse.json({ 
+                error: `DEBUG_SUPABASE_REJECT: ${JSON.stringify(debugPayload)}`
+            }, { status: 500 });
         }
 
         return NextResponse.json({ message: 'Password updated successfully' });
