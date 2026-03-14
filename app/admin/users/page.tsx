@@ -88,6 +88,10 @@ export default function UserManagement() {
         }
 
         try {
+            console.log('--- Outgoing Password Reset Request ---');
+            console.log('Target User ID:', userId);
+            console.log('Admin ID:', currentUser?.id);
+
             const response = await fetch('/api/admin/users/password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

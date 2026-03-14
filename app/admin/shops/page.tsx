@@ -141,6 +141,22 @@ export default function ShopManagement() {
                 return;
             }
 
+            // Provision Auth record immediately so they can login
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                await fetch('/api/admin/users/password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userData.id,
+                        newPassword: 'ChangeMe123!', // Initial password
+                        adminId: session?.user?.id
+                    })
+                });
+            } catch (authErr) {
+                console.error('Auth provisioning failed:', authErr);
+            }
+
             // 2. Create Shop
             const { data: shopData, error: shopError } = await supabase
                 .from('shops')

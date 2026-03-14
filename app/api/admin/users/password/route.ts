@@ -5,6 +5,9 @@ export async function POST(req: Request) {
     try {
         const { userId, newPassword, adminId } = await req.json();
 
+        console.log('--- Password Reset API Debug ---');
+        console.log('Incoming IDs:', { userId, adminId });
+
         if (!userId || !newPassword || !adminId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
@@ -14,7 +17,7 @@ export async function POST(req: Request) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
         if (!serviceRoleKey || !supabaseUrl) {
-            console.error('Missing Supabase configuration:', { hasServiceKey: !!serviceRoleKey, hasUrl: !!supabaseUrl });
+            console.error('[AuthLink] Missing Supabase configuration');
             return NextResponse.json({ 
                 error: 'Server configuration missing: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL.' 
             }, { status: 500 });
@@ -29,15 +32,26 @@ export async function POST(req: Request) {
         );
 
         // Security Check: Verify that the requesting user is a Super Admin
+        console.log('[AuthLink] Verifying requester role for ID:', adminId);
         const { data: adminProfile, error: adminError } = await supabaseAdmin
             .from('users')
-            .select('role')
+            .select('role, email')
             .eq('id', adminId)
             .single();
 
-        if (adminError || adminProfile?.role !== 'super admin') {
-            return NextResponse.json({ error: 'Unauthorized. Only Super Admins can force password changes.' }, { status: 403 });
+        if (adminError) {
+            console.error('[AuthLink] Admin fetch error:', adminError);
+            return NextResponse.json({ error: `Unauthorized: Admin check failed - ${adminError.message}` }, { status: 403 });
         }
+
+        console.log('[AuthLink] Requester profile found:', adminProfile);
+
+        if (adminProfile?.role !== 'super admin') {
+            console.warn('[AuthLink] Requester is NOT a super admin. Role:', adminProfile?.role);
+            return NextResponse.json({ error: `Unauthorized. Role '${adminProfile?.role}' is not allowed to force password changes.` }, { status: 403 });
+        }
+
+        console.log('[AuthLink] Authorization granted. Proceeding with operation for user:', userId);
 
         // Perform the password update using Auth Admin API
         const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
