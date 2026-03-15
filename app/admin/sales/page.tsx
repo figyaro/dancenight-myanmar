@@ -209,15 +209,26 @@ export default function SalesManagement() {
 
             service.textSearch({ query: googleSearchQuery }, (results: any[], status: any) => {
                 if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                    const formattedResults = results.map(place => ({
-                        name: place.name,
-                        address: place.formatted_address,
-                        phone: '', // Needs individual place details fetch for phone
-                        category: (place.types?.[0] || 'others').toUpperCase(),
-                        google_place_id: place.place_id,
-                        rating: place.rating,
-                        user_ratings_total: place.user_ratings_total
-                    }));
+                    const formattedResults = results.map(place => {
+                        // Better category mapping
+                        let mappedCategory = 'others';
+                        const types = place.types || [];
+                        if (types.includes('night_club') || types.includes('bar')) mappedCategory = 'CLUB';
+                        else if (types.includes('restaurant') || types.includes('food')) mappedCategory = 'RESTAURANT';
+                        else if (types.includes('spa')) mappedCategory = 'SPA';
+                        else if (types.includes('massage')) mappedCategory = 'Massage';
+                        // Add more mappings if needed
+                        
+                        return {
+                            name: place.name,
+                            address: place.formatted_address,
+                            phone: '', 
+                            category: mappedCategory,
+                            google_place_id: place.place_id,
+                            rating: place.rating,
+                            user_ratings_total: place.user_ratings_total
+                        };
+                    });
                     setExtractedResults(formattedResults);
                 } else {
                     alert('Search failed: ' + status);
@@ -232,20 +243,22 @@ export default function SalesManagement() {
     };
 
     const importLead = async (result: any) => {
+        console.log('Attempting to import lead:', result);
         const { error } = await supabase.from('sales_leads').insert([{
             name: result.name,
             category: result.category,
             address: result.address,
-            phone: result.phone,
+            phone: result.phone || '',
             google_place_id: result.google_place_id,
             status: 'Prospect'
         }]);
 
         if (error) {
-            if (error.code === '23505') alert('Lead already exists in database.');
-            else alert('Error: ' + error.message);
+            console.error('Import Lead Error:', error);
+            if (error.code === '23505') alert('Lead already exists in database (Place ID duplicate).');
+            else alert('Import Error: ' + error.message + ' (Code: ' + error.code + ')');
         } else {
-            alert('Imported successfully!');
+            alert('Imported successfully: ' + result.name);
             fetchLeads();
         }
     };
