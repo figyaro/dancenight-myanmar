@@ -11,7 +11,7 @@ import { t } from '../../lib/i18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import LoadingScreen from '../components/LoadingScreen';
 import VolumeDial from '../components/VolumeDial';
-import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl } from '../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId } from '../../lib/bunny';
 
 interface UserProfile {
     nickname: string;
@@ -32,6 +32,7 @@ interface Post {
     location_name: string;
     shop_id?: string;
     users?: UserProfile; // Added for joined profile info
+    created_at?: string;
 }
 
 interface Comment {
@@ -58,6 +59,10 @@ function HomeFeedContent() {
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
+    
+    // Video Processing Status State
+    const [videoStatusMap, setVideoStatusMap] = useState<Record<string, { ready: boolean; encodeProgress: number }>>({});
+    const pollingStateRef = useRef<Record<string, 'polling' | 'ready'>>({});
     
     // Audio State
     const [isMuted, setIsMuted] = useState(false);
@@ -338,6 +343,50 @@ function HomeFeedContent() {
         if (posts.length > 0) handleScroll();
     }, [posts]);
 
+    // Poll Bunny Stream API for newly uploaded videos
+    useEffect(() => {
+        const isProbablyReady = (createdAt?: string) => {
+            if (!createdAt) return false;
+            // If older than 5 minutes, assume it's completely processed to save API calls
+            return Date.now() - new Date(createdAt).getTime() > 5 * 60 * 1000;
+        };
+
+        posts.forEach(post => {
+            if (!post.main_image_url || !isBunnyStream(post.main_image_url)) return;
+            if (isProbablyReady(post.created_at as string)) return; // Use fallback rendering
+            
+            const videoId = extractBunnyVideoId(post.main_image_url);
+            if (!videoId) return;
+
+            if (pollingStateRef.current[post.id]) return; // Already polling or known ready
+            
+            pollingStateRef.current[post.id] = 'polling';
+
+            const pollStatus = async () => {
+                try {
+                    const res = await fetch(`/api/media/status?videoId=${videoId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setVideoStatusMap(prev => ({
+                            ...prev,
+                            [post.id]: { ready: data.ready, encodeProgress: data.encodeProgress || 0 }
+                        }));
+
+                        if (data.ready) {
+                            pollingStateRef.current[post.id] = 'ready';
+                            return; // Stop polling
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Polling error", e);
+                }
+                setTimeout(pollStatus, 3000);
+            };
+
+            pollStatus();
+        });
+    }, [posts]);
+
     // Reset play state and track impressions only when the active post actually changes
     useEffect(() => {
         if (activePostId) {
@@ -370,19 +419,44 @@ function HomeFeedContent() {
         const timer = setTimeout(() => {
             Object.entries(postRefs.current).forEach(([id, container]) => {
                 const video = container?.querySelector('video');
-                if (!video) return;
+                const iframe = container?.querySelector('iframe');
 
                 if (id === activePostId) {
-                    if (isPlaying) {
-                        video.play().catch(err => console.warn("Auto-play blocked:", err));
-                    } else {
-                        video.pause();
+                    if (video) {
+                        if (isPlaying) {
+                            video.play().catch(err => console.warn("Auto-play blocked:", err));
+                        } else {
+                            video.pause();
+                        }
+                        video.muted = !hasInteracted || isMuted;
+                        video.volume = volume;
                     }
-                    video.muted = !hasInteracted || isMuted;
-                    video.volume = volume;
+                    if (iframe && iframe.contentWindow) {
+                        try {
+                            if (isPlaying) iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+                            else iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
+                            
+                            if (!hasInteracted || isMuted) {
+                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                            } else {
+                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
+                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
+                            }
+                        } catch (e) {
+                            console.warn("Iframe interaction error:", e);
+                        }
+                    }
                 } else {
-                    video.pause();
-                    video.currentTime = 0;
+                    if (video) {
+                        video.pause();
+                        video.currentTime = 0;
+                    }
+                    if (iframe && iframe.contentWindow) {
+                        try {
+                            iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
+                            iframe.contentWindow.postMessage(JSON.stringify({ method: 'setCurrentTime', value: 0 }), '*');
+                        } catch (e) {}
+                    }
                 }
             });
         }, 100);
@@ -478,14 +552,41 @@ function HomeFeedContent() {
                         {post.main_image_url ? (
                             isBunnyStream(post.main_image_url) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
-                                    <iframe
-                                        src={`${getBunnyStreamEmbedUrl(post.main_image_url)}?autoplay=true&muted=true&loop=true&preload=true&responsive=true`}
-                                        loading="lazy"
-                                        style={{ border: 0, width: '100%', height: '100%' }}
-                                        className="w-full h-full object-cover" 
-                                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                        allowFullScreen
-                                    ></iframe>
+                                    <div className={`absolute inset-0 transition-opacity duration-1000 ${videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
+                                        <iframe
+                                            src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
+                                            loading="lazy"
+                                            style={{ border: 0, width: '100%', height: '100%' }}
+                                            className="w-full h-full object-cover" 
+                                            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                            allowFullScreen
+                                            onLoad={(e) => {
+                                                if (activePostId === post.id && isPlaying) {
+                                                    e.currentTarget.contentWindow?.postMessage(JSON.stringify({ method: 'play' }), '*');
+                                                    if (!hasInteracted || isMuted) {
+                                                        e.currentTarget.contentWindow?.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                                                    }
+                                                }
+                                            }}
+                                        ></iframe>
+                                    </div>
+
+                                    {/* Video Processing Overlay */}
+                                    {videoStatusMap[post.id]?.ready === false && (
+                                        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
+                                            <div className="relative w-24 h-24 mb-6">
+                                                <svg className="animate-spin w-full h-full text-zinc-800" viewBox="0 0 100 100">
+                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" />
+                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#ec4899" strokeWidth="4" strokeDasharray="283" strokeDashoffset={283 - (283 * ((videoStatusMap[post.id]?.encodeProgress || 0) / 100))} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                                                </svg>
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-pink-500 font-black text-xl">{videoStatusMap[post.id]?.encodeProgress || 0}%</span>
+                                                </div>
+                                            </div>
+                                            <h3 className="text-white font-black tracking-widest text-lg uppercase mb-2">Video Processing</h3>
+                                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.2em] animate-pulse text-center leading-relaxed">Designing the next viral moment...<br/>Get ready to dance.</p>
+                                        </div>
+                                    )}
                                 </div>
                             ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">

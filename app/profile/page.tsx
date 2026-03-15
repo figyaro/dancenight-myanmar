@@ -8,12 +8,14 @@ import TopNav from '../components/TopNav';
 import { getEffectiveUserId } from '../../lib/auth-util';
 import { supabase } from '../../lib/supabase';
 import { t } from '../../lib/i18n';
+import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl } from '../../lib/bunny';
 
 export default function Profile() {
     const [profile, setProfile] = useState<any>(null);
     const [dancerData, setDancerData] = useState<any>(null);
     const [userPosts, setUserPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -67,11 +69,6 @@ export default function Profile() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
-    };
-
-    const isVideo = (url: string) => {
-        if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
     };
 
     if (loading) {
@@ -240,40 +237,81 @@ export default function Profile() {
 
                     {userPosts.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1">
-                            {userPosts.map((post) => (
-                                <Link 
-                                    key={post.id} 
-                                    href={`/home?postId=${post.id}`}
-                                    className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
-                                >
-                                    {post.main_image_url ? (
-                                        isVideo(post.main_image_url) ? (
-                                            <div className="w-full h-full relative">
-                                                <video 
-                                                    src={post.main_image_url} 
-                                                    className="w-full h-full object-cover"
-                                                    muted
-                                                    playsInline
-                                                />
-                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                            {userPosts.map((post) => {
+                                const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
+                                const isPlaying = playingVideoId === post.id;
+                                
+                                return (
+                                    <div 
+                                        key={post.id} 
+                                        onClick={() => {
+                                            if (isPostVideo) {
+                                                if (isPlaying) {
+                                                    router.push(`/home?postId=${post.id}`);
+                                                } else {
+                                                    setPlayingVideoId(post.id);
+                                                }
+                                            } else {
+                                                router.push(`/home?postId=${post.id}`);
+                                            }
+                                        }}
+                                        className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
+                                    >
+                                        <div className="absolute inset-0 z-20 pointer-events-auto" /> {/* Click interceptor overlay */}
+                                        {post.main_image_url ? (
+                                            isBunnyStream(post.main_image_url) ? (
+                                                isPlaying ? (
+                                                    <iframe
+                                                        src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
+                                                        loading="lazy"
+                                                        style={{ border: 0, width: '100%', height: '100%' }}
+                                                        className="w-full h-full object-cover pointer-events-none" 
+                                                        allow="accelerometer; gyroscope; autoplay; encrypted-media;"
+                                                    ></iframe>
+                                                ) : (
+                                                    <div className="w-full h-full relative">
+                                                        <img 
+                                                            src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
+                                                            className="w-full h-full object-cover" 
+                                                            alt="" 
+                                                        />
+                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ) : isVideo(post.main_image_url) ? (
+                                                <div className="w-full h-full relative">
+                                                    <video 
+                                                        src={post.main_image_url} 
+                                                        className="w-full h-full object-cover"
+                                                        muted
+                                                        playsInline
+                                                        autoPlay={isPlaying}
+                                                        onEnded={() => setPlayingVideoId(null)}
+                                                    />
+                                                    {!isPlaying && (
+                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <img 
+                                                    src={post.main_image_url} 
+                                                    className="w-full h-full object-cover" 
+                                                    alt="" 
+                                                />
+                                            )
                                         ) : (
-                                            <img 
-                                                src={post.main_image_url} 
-                                                className="w-full h-full object-cover" 
-                                                alt="" 
-                                            />
-                                        )
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                                            <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </Link>
-                            ))}
+                                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                                                <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="bg-zinc-900/30 border border-dashed border-white/5 rounded-3xl py-12 text-center">

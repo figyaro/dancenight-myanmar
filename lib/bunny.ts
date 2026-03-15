@@ -67,6 +67,28 @@ export function isBunnyStream(url: string | null): boolean {
     return url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com');
 }
 
+/**
+ * Extracts the video ID from a Bunny Stream URL
+ */
+export function extractBunnyVideoId(url: string | null): string | null {
+    if (!url || !isBunnyStream(url)) return null;
+
+    const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
+    const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    const embedMatch = url.match(/\/embed\/(\d+)\/([a-z0-9-]+)/i);
+    const idOnlyMatch = url.match(/^([a-z0-9-]{36})$/i);
+
+    if (playerMatch) return playerMatch[2];
+    if (libraryMatch) return libraryMatch[2];
+    if (embedMatch) return embedMatch[2];
+    if (idOnlyMatch) return idOnlyMatch[1];
+
+    const guidMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
+    if (guidMatch) return guidMatch[1];
+
+    return null;
+}
+
 export const isVideo = (url: string | null) => {
     if (!url) return false;
     // Check if it's a direct video link or a Bunny Stream iframe link
@@ -159,7 +181,7 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
  * Transforms a Bunny Stream player or direct link into the official player embed URL
  * Format: https://player.mediadelivery.net/embed/{libraryId}/{videoId}
  */
-export function getBunnyStreamEmbedUrl(url: string | null): string | null {
+export function getBunnyStreamEmbedUrl(url: string | null, autoplay: boolean = false): string | null {
     if (!url) return null;
     
     let videoId = '';
@@ -195,8 +217,8 @@ export function getBunnyStreamEmbedUrl(url: string | null): string | null {
 
     if (!videoId || !libraryId) return url;
 
-    // Return the modern embed URL with autoplay and muted for better mobile support
-    return `https://player.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&muted=true&preload=true&loop=true`;
+    // Return the modern embed URL with explicit autoplay state
+    return `https://player.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=${autoplay}&muted=true&preload=true&loop=true`;
 }
 
 /**
