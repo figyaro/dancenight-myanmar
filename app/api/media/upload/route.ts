@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             url: result.url,
             mediaId: result.mediaId,
+            fileSize: file.size, // Return file size to caller
             success: true
         });
 

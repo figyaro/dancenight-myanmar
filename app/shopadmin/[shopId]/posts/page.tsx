@@ -89,6 +89,7 @@ export default function ShopPostManagement() {
                 shop_id: shopId, 
                 user_id: userId,
                 main_image_url: publicUrl,
+                file_size: mediaFile ? mediaFile.size : 0, // Store file size
                 location_name: 'Shop Update',
                 name: shopName, // Use actual shop name
                 title: content, // Use full content as title

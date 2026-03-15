@@ -22,7 +22,7 @@ export default function PostManagement() {
 
     const fetchPosts = async () => {
         setLoading(true);
-        // Fetch posts with user info and aggregate counts for likes/comments
+        // Fetch posts with user info and aggregate counts for likes/comments/impressions
         const { data, error } = await supabase
             .from('posts')
             .select(`
@@ -34,14 +34,18 @@ export default function PostManagement() {
         if (error) {
             console.error('Error fetching posts:', error);
         } else {
-            // Fetch interaction counts separately to ensure accuracy
+            // Fetch interaction counts separately to ensure accuracy and real-time feel
             const { data: likes } = await supabase.from('likes').select('post_id');
             const { data: comments } = await supabase.from('comments').select('post_id');
+            const { data: analytics } = await supabase.from('analytics_events')
+                .select('post_id')
+                .eq('event_type', 'post_impression');
 
             const enrichedPosts = (data || []).map(post => ({
                 ...post,
                 likes_count: likes?.filter(l => l.post_id === post.id).length || 0,
-                comments_count: comments?.filter(c => c.post_id === post.id).length || 0
+                comments_count: comments?.filter(c => c.post_id === post.id).length || 0,
+                impression_count: analytics?.filter(a => a.post_id === post.id).length || 0
             }));
             setPosts(enrichedPosts);
         }
@@ -89,12 +93,14 @@ export default function PostManagement() {
 
         try {
             let mediaUrl = selectedPost.main_image_url;
+            let fileSize = selectedPost.file_size;
 
             // 1. Handle Media Update if new file selected
             if (newMediaFile) {
                 const { url, error: uploadError } = await uploadMedia(newMediaFile, 'posts');
                 if (uploadError) throw new Error(uploadError);
                 mediaUrl = url;
+                fileSize = newMediaFile.size;
             }
 
             // 2. Update DB
@@ -104,6 +110,7 @@ export default function PostManagement() {
                     content: editCaption,
                     title: editCaption, // Update both if needed
                     main_image_url: mediaUrl,
+                    file_size: fileSize,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', selectedPost.id);
@@ -115,7 +122,8 @@ export default function PostManagement() {
                 ...p, 
                 content: editCaption, 
                 title: editCaption,
-                main_image_url: mediaUrl 
+                main_image_url: mediaUrl,
+                file_size: fileSize
             } : p));
             
             setSelectedPost(null);
@@ -131,6 +139,14 @@ export default function PostManagement() {
     const isVideo = (url: string) => {
         if (!url) return false;
         return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+    };
+
+    const formatFileSize = (bytes: number) => {
+        if (!bytes) return 'N/A';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     if (loading) return <LoadingScreen fullScreen={false} />;
@@ -286,24 +302,53 @@ export default function PostManagement() {
 
                         {/* Metadata Grid */}
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Engagements</span>
-                                <div className="flex gap-4">
-                                    <div className="text-sm font-black text-white flex items-center gap-1.5">
-                                        <span className="grayscale opacity-50">❤️</span> {selectedPost.likes_count || 0}
+                            {/* Identity Section (Enlarged) */}
+                            <div className="col-span-2 p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-xl">
+                                    <img src={selectedPost.user?.avatar_url || '/placeholder-avatar.png'} className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-0.5">Author Identity</span>
+                                    <h4 className="text-xl font-black text-white leading-tight">{selectedPost.user?.nickname || 'Unknown User'}</h4>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight mt-1 truncate max-w-[200px]">ID: {selectedPost.id}</p>
+                                </div>
+                            </div>
+
+                            {/* Analytics Section */}
+                            <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
+                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">Performance Data</span>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Impressions</span>
+                                        <span className="text-white font-black">{selectedPost.impression_count || 0}</span>
                                     </div>
-                                    <div className="text-sm font-black text-white flex items-center gap-1.5">
-                                        <span className="grayscale opacity-50">💬</span> {selectedPost.comments_count || 0}
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Likes</span>
+                                        <span className="text-white font-black">{selectedPost.likes_count || 0}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Comments</span>
+                                        <span className="text-white font-black">{selectedPost.comments_count || 0}</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Identity</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full overflow-hidden">
-                                        <img src={selectedPost.user?.avatar_url || '/placeholder-avatar.png'} className="w-full h-full object-cover" />
+
+                            {/* Technical Metadata */}
+                            <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
+                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">File Technicals</span>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Size</span>
+                                        <span className="text-white font-black">{formatFileSize(selectedPost.file_size)}</span>
                                     </div>
-                                    <span className="text-[10px] font-black text-white uppercase italic">{selectedPost.user?.nickname || 'Unknown'}</span>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Location</span>
+                                        <span className="text-white font-black truncate max-w-[80px]" title={selectedPost.location_name}>{selectedPost.location_name || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-zinc-400 font-bold">Date</span>
+                                        <span className="text-white font-black">{new Date(selectedPost.created_at).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
