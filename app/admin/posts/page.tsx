@@ -405,11 +405,11 @@ export default function PostManagement() {
                         {/* Post Actions */}
                         <div className="pt-6 border-t border-white/5 flex items-center gap-3">
                             <button 
-                                onClick={handleUpdatePost}
-                                disabled={actionLoading}
+                                onClick={handleSaveChanges}
+                                disabled={isSaving}
                                 className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
                             >
-                                {actionLoading ? (
+                                {isSaving ? (
                                     <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
                                 ) : (
                                     <>

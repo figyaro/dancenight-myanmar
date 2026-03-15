@@ -114,8 +114,15 @@ function HomeFeedContent() {
                 }
 
                 // Fetch recommended posts using RPC
+                // Ensure effectiveUserId is a valid UUID to avoid 400 errors
+                const isValidUUID = (id: string | null) => {
+                    if (!id) return false;
+                    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    return uuidPattern.test(id);
+                };
+
                 const { data, error } = await supabase
-                    .rpc('get_recommended_posts', { p_user_id: effectiveUserId || null });
+                    .rpc('get_recommended_posts', { p_user_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
 
                 if (error) {
                     console.warn("RPC failed, falling back to standard query", error);
