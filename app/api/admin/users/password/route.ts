@@ -23,6 +23,23 @@ export async function POST(req: Request) {
             }, { status: 500 });
         }
 
+        // --- CRITICAL DEPLOYMENT CHECK ---
+        // Many users accidentally supply the ANON key as the SERVICE ROLE key in cloud environments.
+        // The ANON key will allow basic database reads (if RLS permits) but will hard-fail with 
+        // 403 "User not allowed" on any auth.admin.* calls.
+        try {
+            // A JWT has 3 parts separated by dots. The payload is the second part (base64 encoded).
+            const jwtPayload = JSON.parse(Buffer.from(serviceRoleKey.split('.')[1], 'base64').toString());
+            if (jwtPayload.role !== 'service_role') {
+                console.error(`[AuthLink] FATAL: SUPABASE_SERVICE_ROLE_KEY is actually a '${jwtPayload.role}' key!`);
+                return NextResponse.json({ 
+                    error: `CRITICAL DEPLOYMENT ERROR: The SUPABASE_SERVICE_ROLE_KEY environment variable is incorrectly set to an '${jwtPayload.role}' key (likely the anon key). You MUST use the actual Service Role Key (found in Supabase > Settings > API) for admin operations.` 
+                }, { status: 500 });
+            }
+        } catch (e) {
+            console.warn('[AuthLink] Could not parse serviceRoleKey as JWT. Proceeding anyway, but it may be invalid.');
+        }
+
         const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
                 auth: {
                     autoRefreshToken: false,
@@ -78,17 +95,12 @@ export async function POST(req: Request) {
         );
 
         if (error) {
-            console.error('[AuthLink] Supabase Update Error Details:', {
-                message: error.message,
-                status: (error as any).status, // GoTrue error usually has status
-                name: (error as any).name
-            });
             // Handle "User not found" by attempting to create the Auth record
-            if (error.message.includes('User not found')) {
-                // 1. Fetch user data from database for backup
+            if (error.message.includes('User not found') || (error as any).status === 404) {
+                // Fetch basic user data to create the auth record
                 const { data: userData, error: fetchError } = await supabaseAdmin
                     .from('users')
-                    .select('*')
+                    .select('email, nickname')
                     .eq('id', userId)
                     .single();
 
@@ -96,83 +108,32 @@ export async function POST(req: Request) {
                     return NextResponse.json({ error: 'User found in database but email is missing or fetch failed.' }, { status: 404 });
                 }
 
-                // 2. Temporarily remove the user from public.users to avoid trigger conflict
-                console.log(`[AuthLink] Attempting to delete existing record for ${userId}`);
-                const { error: deleteError, count } = await supabaseAdmin
-                    .from('users')
-                    .delete({ count: 'exact' })
-                    .eq('id', userId);
-
-                if (deleteError) {
-                    console.error('[AuthLink] Delete failed:', deleteError);
-                    return NextResponse.json({ error: `Failed to clear existing record: ${deleteError.message}` }, { status: 500 });
-                }
-                console.log(`[AuthLink] Delete successful. Rows affected: ${count}`);
-
-                // 2b. DOUBLE CHECK that it's really gone
-                const { data: checkData } = await supabaseAdmin
-                    .from('users')
-                    .select('id')
-                    .eq('id', userId)
-                    .maybeSingle();
-                
-                if (checkData) {
-                    console.error('[AuthLink] CRITICAL: Row still exists after delete! Likely foreign key restriction.');
-                    return NextResponse.json({ 
-                        error: 'Failed to link Auth: The user record could not be removed (likely due to existing posts, bookings, or other linked data). Please delete the user\'s data first or contact support.' 
-                    }, { status: 500 });
-                }
-
-                // 3. Create the Auth record with the same ID
                 console.log(`[AuthLink] Proceeding to create Auth record for ${userData.email} with ID ${userId}`);
                 const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
                     id: userId,
                     email: userData.email,
                     password: newPassword,
-                    email_confirm: true
+                    email_confirm: true,
+                    user_metadata: {
+                        name: userData.nickname || 'User'
+                    }
                 });
 
                 if (createError) {
                     console.error('[AuthLink] Auth createUser failed:', createError);
-                    // Critical: If Auth creation fails, we MUST try to restore the original record
-                    await supabaseAdmin.from('users').insert([userData]);
                     return NextResponse.json({ error: `Failed to create Auth: ${createError.message}` }, { status: 500 });
                 }
+
                 console.log(`[AuthLink] Auth record created successfully:`, authData?.user?.id);
-
-                // 4. Update the newly created record with original data to preserve role, etc.
-                console.log(`[AuthLink] Restoring user attributes for ${userId}`);
-                const { error: restoreError } = await supabaseAdmin
-                    .from('users')
-                    .update({
-                        nickname: userData.nickname,
-                        role: userData.role,
-                        avatar_url: userData.avatar_url,
-                        language: userData.language,
-                        location: userData.location,
-                    })
-                    .eq('id', userId);
-
-                if (restoreError) {
-                    console.error('Failed to restore user attributes:', restoreError);
-                    // We don't fail the whole request here as the Auth record is already created
-                }
-
-                return NextResponse.json({ message: 'Auth account successfully created and linked with data preservation.' });
+                return NextResponse.json({ message: 'Auth account successfully created and linked.' });
             }
 
-            // --- DEEP DEBUG: Return everything to the frontend ---
-            const debugPayload = {
-                supabase_error: error.message,
-                supabase_status: (error as any).status || 'unknown',
-                target_user_exists: !!authUser?.user,
-                target_user_banned: authUser?.user?.banned_until || 'no',
-                target_user_email_confirmed: authUser?.user?.email_confirmed_at || 'no',
-                fetch_error: authFetchError?.message || 'none'
-            };
-            return NextResponse.json({ 
-                error: `DEBUG_SUPABASE_REJECT: ${JSON.stringify(debugPayload)}`
-            }, { status: 500 });
+            console.error('[AuthLink] Supabase Update Error Details:', {
+                message: error.message,
+                status: (error as any).status,
+                name: (error as any).name
+            });
+            return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
         return NextResponse.json({ message: 'Password updated successfully' });

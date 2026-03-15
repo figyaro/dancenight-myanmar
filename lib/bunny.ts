@@ -23,8 +23,12 @@ interface UploadResponse {
  * Uploads an image to Bunny Storage
  */
 export async function uploadToBunnyStorage(file: Buffer | File, fileName: string, folder: string = 'images'): Promise<UploadResponse> {
-    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME) {
-        return { success: false, url: '', error: 'Bunny.net Storage configuration missing.' };
+    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME || !BUNNY_PULL_ZONE_URL) {
+        return { 
+            success: false, 
+            url: '', 
+            error: 'Bunny.net Storage configuration missing. (Check BUNNY_PULL_ZONE_URL)' 
+        };
     }
 
     const path = `${folder}/${fileName}`;

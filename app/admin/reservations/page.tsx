@@ -51,9 +51,13 @@ export default function ReservationManagement() {
                 <h2 className="text-xl font-black uppercase tracking-tighter">Global Reservation Management</h2>
                 <button 
                     onClick={fetchReservations}
-                    className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[10px] font-black tracking-widest transition-all"
+                    className="w-12 h-12 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all group"
+                    title="Refresh List"
                 >
-                    REFRESH
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-180 transition-transform duration-500">
+                        <path d="M23 4v6h-6" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
                 </button>
             </div>
 
