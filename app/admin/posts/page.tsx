@@ -8,7 +8,7 @@ import { uploadMedia } from '../../../lib/media-upload';
 import { isBunnyStream, getBunnyStreamVideoUrl, isVideo } from '../../../lib/bunny';
 
 
-const PostManagement = () => {
+export default function PostManagement() {
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPost, setSelectedPost] = useState<any>(null);
