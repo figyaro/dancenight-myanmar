@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
-import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl } from '../../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamThumbnailUrl } from '../../../lib/bunny';
 
 
 export default function PostManagement() {
@@ -175,34 +175,19 @@ export default function PostManagement() {
                         <div className="absolute inset-0 w-full h-full">
                             {post.main_image_url ? (
                                 isBunnyStream(post.main_image_url) ? (
-                                    <video
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                        muted
-                                        playsInline
-                                        loop
-                                        onMouseOver={(e) => e.currentTarget.play()}
-                                        onMouseOut={(e) => {
-                                            e.currentTarget.pause();
-                                            e.currentTarget.currentTime = 0;
-                                        }}
-                                        preload="metadata"
-                                    >
-                                        <source src={getBunnyStreamVideoUrl(post.main_image_url) || ''} type="video/mp4" />
-                                    </video>
+                                    <img 
+                                        src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
+                                        alt="" 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    />
                                 ) : isVideo(post.main_image_url) ? (
                                     <video 
+                                        src={`${post.main_image_url}#t=0.1`}
                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         muted
                                         playsInline
-                                        onMouseOver={(e) => e.currentTarget.play()}
-                                        onMouseOut={(e) => {
-                                            e.currentTarget.pause();
-                                            e.currentTarget.currentTime = 0;
-                                        }}
                                         preload="metadata"
-                                    >
-                                        <source src={post.main_image_url} type="video/mp4" />
-                                    </video>
+                                    />
                                 ) : (
                                     <img 
                                         src={post.main_image_url} 

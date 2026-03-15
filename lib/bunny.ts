@@ -122,6 +122,40 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
 }
 
 /**
+ * Transforms a Bunny Stream player URL into a direct thumbnail URL
+ * Format: https://{pullzone}.b-cdn.net/{videoId}/thumbnail.jpg
+ */
+export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
+    if (!url || !isBunnyStream(url)) return url;
+    
+    // 1. Extract video ID
+    let videoId = '';
+    const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
+    const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    const idOnlyMatch = url.match(/^([a-z0-9-]{36})$/i);
+
+    if (playerMatch) {
+        videoId = playerMatch[2];
+    } else if (libraryMatch) {
+        videoId = libraryMatch[2];
+    } else if (idOnlyMatch) {
+        videoId = idOnlyMatch[1];
+    } else {
+        const guidMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
+        if (guidMatch) videoId = guidMatch[1];
+    }
+    
+    if (!videoId) return url;
+    
+    if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
+        const base = PULL_ZONE.replace(/\/$/, '');
+        return `${base}/${videoId}/thumbnail.jpg`;
+    }
+    
+    return url;
+}
+
+/**
  * Transforms a Bunny Stream player or direct link into the official player embed URL
  * Format: https://player.mediadelivery.net/embed/{libraryId}/{videoId}
  */
