@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
-import { isBunnyStream, getBunnyStreamVideoUrl, isVideo } from '../../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl } from '../../../lib/bunny';
 
 
 export default function PostManagement() {
@@ -293,12 +293,14 @@ export default function PostManagement() {
                                 <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
                                     {selectedPost.main_image_url && (
                                         isBunnyStream(selectedPost.main_image_url) ? (
-                                            <video
-                                                src={getBunnyStreamVideoUrl(selectedPost.main_image_url) || ''}
-                                                className="w-full h-full object-cover"
-                                                controls
-                                                playsInline
-                                            />
+                                            <iframe
+                                                src={getBunnyStreamEmbedUrl(selectedPost.main_image_url) || ''}
+                                                loading="lazy"
+                                                style={{ border: 0 }}
+                                                className="w-full h-full"
+                                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                                allowFullScreen
+                                            ></iframe>
                                         ) : isVideo(selectedPost.main_image_url) ? (
                                             <video 
                                                 src={selectedPost.main_image_url} 

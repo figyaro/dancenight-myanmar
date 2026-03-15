@@ -11,7 +11,7 @@ import { t } from '../../lib/i18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import LoadingScreen from '../components/LoadingScreen';
 import VolumeDial from '../components/VolumeDial';
-import { isBunnyStream, getBunnyStreamVideoUrl } from '../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl } from '../../lib/bunny';
 
 interface UserProfile {
     nickname: string;
@@ -461,16 +461,14 @@ function HomeFeedContent() {
                     >
                         {post.main_image_url ? (
                             isBunnyStream(post.main_image_url) ? (
-                                <video
-                                    src={getBunnyStreamVideoUrl(post.main_image_url) || ''}
-                                    className="absolute inset-0 w-full h-full object-cover"
-                                    playsInline
-                                    muted
-                                    loop
-                                    preload="metadata"
-                                >
-                                    <source src={getBunnyStreamVideoUrl(post.main_image_url) || ''} type="video/mp4" />
-                                </video>
+                                <iframe
+                                    src={getBunnyStreamEmbedUrl(post.main_image_url) || ''}
+                                    loading="lazy"
+                                    style={{ border: 0 }}
+                                    className="absolute inset-0 w-full h-full"
+                                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                    allowFullScreen
+                                ></iframe>
                             ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
                                 <video 
                                     src={post.main_image_url} 

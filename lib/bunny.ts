@@ -122,6 +122,50 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
 }
 
 /**
+ * Transforms a Bunny Stream player or direct link into the official player embed URL
+ * Format: https://player.mediadelivery.net/embed/{libraryId}/{videoId}
+ */
+export function getBunnyStreamEmbedUrl(url: string | null): string | null {
+    if (!url) return null;
+    
+    let videoId = '';
+    let libraryId = (process.env.BUNNY_STREAM_LIBRARY_ID || '').toString();
+
+    // 1. Extract IDs from various formats
+    // Standard player: https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
+    const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
+    // Direct internal: https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/...
+    const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    // Already an embed: https://player.mediadelivery.net/embed/{libraryId}/{videoId}
+    const embedMatch = url.match(/\/embed\/(\d+)\/([a-z0-9-]+)/i);
+    
+    if (playerMatch) {
+        libraryId = playerMatch[1];
+        videoId = playerMatch[2];
+    } else if (libraryMatch) {
+        libraryId = libraryMatch[1];
+        videoId = libraryMatch[2];
+    } else if (embedMatch) {
+        libraryId = embedMatch[1];
+        videoId = embedMatch[2];
+    } else {
+        // Fallback: check if it's just a GUID
+        const guidMatch = url.match(/^([a-z0-9-]{36})$/i);
+        if (guidMatch) {
+            videoId = guidMatch[1];
+        } else {
+            const guidInPathMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
+            if (guidInPathMatch) videoId = guidInPathMatch[1];
+        }
+    }
+
+    if (!videoId || !libraryId) return url;
+
+    // Return the modern embed URL with autoplay and muted for better mobile support
+    return `https://player.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&muted=true&preload=true&loop=true`;
+}
+
+/**
  * Uploads a video to Bunny Stream
  * Note: This involves creating a video entry and then uploading the content.
  */
