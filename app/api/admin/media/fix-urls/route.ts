@@ -8,7 +8,7 @@ import { supabase } from '../../../../../lib/supabase';
  */
 export async function GET(req: NextRequest) {
     try {
-        const PULL_ZONE = process.env.BUNNY_PULL_ZONE_URL || 'https://dancetgt.b-cdn.net';
+        const PULL_ZONE = process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE_URL || 'https://dancetgt.b-cdn.net';
         const stats: Record<string, number> = {
             events: 0,
             posts: 0,
@@ -27,11 +27,13 @@ export async function GET(req: NextRequest) {
         ];
 
         for (const [table, column] of targets) {
-            // 1. Fetch broken records (any containing 'undefined')
+            // 1. Fetch records that look broken:
+            // - Contain 'undefined'
+            // - OR don't start with 'http' (relative paths)
             const { data, error } = await supabase
                 .from(table)
                 .select(`id, ${column}`)
-                .filter(column, 'ilike', '%undefined%') as any;
+                .or(`${column}.ilike.%undefined%,${column}.not.ilike.http%`) as any;
 
             if (error) {
                 console.error(`Error fetching ${table}:`, error);
@@ -39,21 +41,26 @@ export async function GET(req: NextRequest) {
             }
 
             if (data && data.length > 0) {
-                console.log(`[Repair] Found ${data.length} broken records in ${table}`);
+                console.log(`[Repair] Found ${data.length} potentially broken records in ${table}`);
                 for (const row of data) {
                     const brokenUrl = (row as any)[column] as string;
                     if (!brokenUrl) continue;
                     
-                    // Replace 'undefined/' or '/undefined/' or just 'undefined' at the start
-                    // We target common patterns: 'undefined/', '/undefined/', or 'https://.../undefined/'
                     let fixedUrl = brokenUrl;
-                    if (brokenUrl.includes('undefined/')) {
-                        fixedUrl = brokenUrl.replace(/.*undefined\//, `${PULL_ZONE}/`);
-                    } else if (brokenUrl === 'undefined') {
-                        continue; // skip if it's just the string 'undefined'
+                    
+                    // Case A: URL contains 'undefined'
+                    if (brokenUrl.includes('undefined')) {
+                        // Extract path after 'undefined/' or just use the whole thing if no slash
+                        const pathMatch = brokenUrl.match(/undefined\/(.*)/);
+                        const path = pathMatch ? pathMatch[1] : brokenUrl.replace('undefined', '');
+                        fixedUrl = `${PULL_ZONE}/${path.replace(/^\/+/, '')}`;
+                    } 
+                    // Case B: Relative URL (doesn't start with http and isn't empty)
+                    else if (!brokenUrl.startsWith('http')) {
+                        fixedUrl = `${PULL_ZONE}/${brokenUrl.replace(/^\/+/, '')}`;
                     }
                     
-                    if (fixedUrl === brokenUrl) continue;
+                    if (fixedUrl === brokenUrl || !fixedUrl.startsWith('http')) continue;
 
                     const { error: updateError } = await supabase
                         .from(table)
