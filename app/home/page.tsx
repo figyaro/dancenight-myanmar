@@ -122,7 +122,7 @@ function HomeFeedContent() {
                 };
 
                 const { data, error } = await supabase
-                    .rpc('get_recommended_posts', { p_user_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
+                    .rpc('get_recommended_posts_v2', { p_viewer_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
 
                 if (error) {
                     console.warn("RPC failed, falling back to standard query", error);
@@ -135,7 +135,23 @@ function HomeFeedContent() {
                     if (fallbackError) throw fallbackError;
                     setPosts(fallbackData as Post[]);
                 } else if (data) {
-                    setPosts(data as Post[]);
+                    const mappedData = data.map((item: any) => ({
+                        id: item.out_id,
+                        user_id: item.out_user_id,
+                        area: item.out_area,
+                        name: item.out_name,
+                        title: item.out_title,
+                        price_per_hour: item.out_price_per_hour,
+                        currency: item.out_currency,
+                        rating: item.out_rating,
+                        main_image_url: item.out_main_image_url,
+                        location_name: item.out_location_name,
+                        shop_id: item.out_shop_id,
+                        created_at: item.out_created_at,
+                        users: item.out_users,
+                        score: item.out_score
+                    }));
+                    setPosts(mappedData as Post[]);
                 }
 
                 if (data || posts.length > 0) {
@@ -461,30 +477,40 @@ function HomeFeedContent() {
                     >
                         {post.main_image_url ? (
                             isBunnyStream(post.main_image_url) ? (
-                                <iframe
-                                    src={getBunnyStreamEmbedUrl(post.main_image_url) || ''}
-                                    loading="lazy"
-                                    style={{ border: 0 }}
-                                    className="absolute inset-0 w-full h-full"
-                                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                    allowFullScreen
-                                ></iframe>
+                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
+                                    <iframe
+                                        src={`${getBunnyStreamEmbedUrl(post.main_image_url)}?autoplay=true&muted=true&loop=true&preload=true&responsive=true`}
+                                        loading="lazy"
+                                        style={{ border: 0, width: '100%', height: '100%' }}
+                                        className="w-full h-full object-cover" 
+                                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                        allowFullScreen
+                                    ></iframe>
+                                </div>
                             ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
-                                <video 
-                                    src={post.main_image_url} 
-                                    className="absolute inset-0 w-full h-full object-cover"
-                                    playsInline
-                                    muted
-                                    loop
-                                    preload="metadata"
-                                >
-                                    <source src={post.main_image_url} type="video/mp4" />
-                                </video>
+                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
+                                    <video 
+                                        className="w-full h-full object-cover"
+                                        playsInline
+                                        muted
+                                        loop
+                                        autoPlay
+                                        preload="auto"
+                                    >
+                                        <source src={post.main_image_url} type="video/mp4" />
+                                    </video>
+                                </div>
                             ) : (
-                                <img src={post.main_image_url} className="absolute inset-0 w-full h-full object-cover" alt={post.name} />
+                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
+                                    <img 
+                                        src={post.main_image_url} 
+                                        className="w-full h-full object-cover" 
+                                        alt={post.name} 
+                                    />
+                                </div>
                             )
                         ) : (
-                            <div className="absolute inset-0 w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600">
+                            <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center text-zinc-600">
                                 <span className="font-black tracking-tighter opacity-20 text-4xl">DANCE NIGHT</span>
                             </div>
                         )}
