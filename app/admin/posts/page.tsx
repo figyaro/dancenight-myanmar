@@ -379,6 +379,14 @@ export default function PostManagement() {
                                         <span className="text-zinc-400 font-bold">Date</span>
                                         <span className="text-white font-black">{new Date(selectedPost.created_at).toLocaleDateString()}</span>
                                     </div>
+                                    {isBunnyStream(selectedPost.main_image_url) && (
+                                        <div className="col-span-2 mt-2 pt-2 border-t border-white/5">
+                                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Direct Video URL</span>
+                                            <div className="bg-black/40 p-2 rounded-lg break-all text-[9px] font-mono text-pink-400 border border-white/5">
+                                                {getBunnyStreamVideoUrl(selectedPost.main_image_url)}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -394,13 +402,31 @@ export default function PostManagement() {
                             />
                         </div>
 
-                        {/* Dangerous Actions */}
-                        <div className="pt-4 border-t border-white/5">
+                        {/* Post Actions */}
+                        <div className="pt-6 border-t border-white/5 flex items-center gap-3">
+                            <button 
+                                onClick={handleUpdatePost}
+                                disabled={actionLoading}
+                                className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
+                            >
+                                {actionLoading ? (
+                                    <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                        Update Post
+                                    </>
+                                )}
+                            </button>
+                            
                             <button 
                                 onClick={() => deletePost(selectedPost.id)}
-                                className="w-full py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black tracking-widest uppercase border border-red-500/20 transition-all"
+                                className="w-14 h-14 bg-zinc-900 border border-white/10 rounded-2xl flex items-center justify-center text-zinc-500 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all active:scale-95"
+                                title="Delete Permanently"
                             >
-                                DELETE PERMANENTLY
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                                </svg>
                             </button>
                         </div>
                     </div>

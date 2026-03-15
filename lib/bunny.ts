@@ -81,16 +81,29 @@ export const isVideo = (url: string | null) => {
 export function getBunnyStreamVideoUrl(url: string | null): string | null {
     if (!url || !isBunnyStream(url)) return url;
     
-    // Extract library ID and video ID from standard player URL
+    // Extract video ID from standard player URL or direct URL
     // https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
-    const match = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
-    if (!match) return url;
+    // or https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/play_720p.mp4
+    let videoId = '';
+    const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
+    const directMatch = url.match(/\/videos\/([a-z0-9-]+)/i);
     
-    const libraryId = match[1];
-    const videoId = match[2];
+    if (playerMatch) {
+        videoId = playerMatch[2];
+    } else if (directMatch) {
+        videoId = directMatch[1];
+    }
     
-    // Default to library-specific direct access URL if no pull zone is specified
-    return `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play.720p.mp4`;
+    if (!videoId) return url;
+    
+    // Use PULL_ZONE if available, otherwise fallback to video.bunnycdn.com
+    // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
+    if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
+        return `${PULL_ZONE.replace(/\/$/, '')}/${videoId}/play_720p.mp4`;
+    }
+    
+    // Fallback if PULL_ZONE is missing (though it might 404 if libraryId is missing in path)
+    return url;
 }
 
 /**
