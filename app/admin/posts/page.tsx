@@ -186,7 +186,10 @@ export default function PostManagement() {
                                             e.currentTarget.pause();
                                             e.currentTarget.currentTime = 0;
                                         }}
-                                    />
+                                        preload="metadata"
+                                    >
+                                        <source src={getBunnyStreamVideoUrl(post.main_image_url) || ''} type="video/mp4" />
+                                    </video>
                                 ) : isVideo(post.main_image_url) ? (
                                     <video 
                                         src={post.main_image_url} 
@@ -198,7 +201,10 @@ export default function PostManagement() {
                                             e.currentTarget.pause();
                                             e.currentTarget.currentTime = 0;
                                         }}
-                                    />
+                                        preload="metadata"
+                                    >
+                                        <source src={post.main_image_url} type="video/mp4" />
+                                    </video>
                                 ) : (
                                     <img 
                                         src={post.main_image_url} 
@@ -272,9 +278,6 @@ export default function PostManagement() {
                 isOpen={!!selectedPost}
                 onClose={() => setSelectedPost(null)}
                 title="Post Inspection"
-                onSave={handleSaveChanges}
-                isSaving={isSaving}
-                saveLabel="Update Post"
             >
                 {selectedPost && (
                     <div className="space-y-8">
@@ -303,7 +306,10 @@ export default function PostManagement() {
                                                 controls
                                                 autoPlay
                                                 muted
-                                            />
+                                                preload="metadata"
+                                            >
+                                                <source src={selectedPost.main_image_url} type="video/mp4" />
+                                            </video>
                                         ) : (
                                             <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
                                         )

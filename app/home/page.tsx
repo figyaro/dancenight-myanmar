@@ -464,18 +464,24 @@ function HomeFeedContent() {
                                 <video
                                     src={getBunnyStreamVideoUrl(post.main_image_url) || ''}
                                     className="absolute inset-0 w-full h-full object-cover"
-                                    loop
                                     playsInline
-                                    muted={true}
-                                />
+                                    muted
+                                    loop
+                                    preload="metadata"
+                                >
+                                    <source src={getBunnyStreamVideoUrl(post.main_image_url) || ''} type="video/mp4" />
+                                </video>
                             ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
                                 <video 
                                     src={post.main_image_url} 
                                     className="absolute inset-0 w-full h-full object-cover"
-                                    loop
                                     playsInline
-                                    muted={true}
-                                />
+                                    muted
+                                    loop
+                                    preload="metadata"
+                                >
+                                    <source src={post.main_image_url} type="video/mp4" />
+                                </video>
                             ) : (
                                 <img src={post.main_image_url} className="absolute inset-0 w-full h-full object-cover" alt={post.name} />
                             )

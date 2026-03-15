@@ -81,28 +81,43 @@ export const isVideo = (url: string | null) => {
 export function getBunnyStreamVideoUrl(url: string | null): string | null {
     if (!url || !isBunnyStream(url)) return url;
     
-    // Extract video ID from standard player URL or direct URL
-    // https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
-    // or https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/play_720p.mp4
+    // 1. Extract video ID and library ID
     let videoId = '';
+    let libraryId = '';
+
+    // Standard player: https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
     const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
-    const directMatch = url.match(/\/videos\/([a-z0-9-]+)/i);
-    
+    // Direct internal: https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}/...
+    const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    // Bare GUID: 9c0c75d8-448f-4517-8d96-8f43be17412d
+    const idOnlyMatch = url.match(/^([a-z0-9-]{36})$/i);
+
     if (playerMatch) {
+        libraryId = playerMatch[1];
         videoId = playerMatch[2];
-    } else if (directMatch) {
-        videoId = directMatch[1];
+    } else if (libraryMatch) {
+        libraryId = libraryMatch[1];
+        videoId = libraryMatch[2];
+    } else if (idOnlyMatch) {
+        videoId = idOnlyMatch[1];
+    } else {
+        // Fallback: search for any GUID-like pattern
+        const guidMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
+        if (guidMatch) videoId = guidMatch[1];
     }
     
     if (!videoId) return url;
     
-    // Use PULL_ZONE if available, otherwise fallback to video.bunnycdn.com
+    // Use PULL_ZONE if available
     // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
     if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
-        return `${PULL_ZONE.replace(/\/$/, '')}/${videoId}/play_720p.mp4`;
+        const base = PULL_ZONE.replace(/\/$/, '');
+        // We try play_720p.mp4 first as it is the standard for most modern Bunny libraries
+        return `${base}/${videoId}/play_720p.mp4`;
     }
     
-    // Fallback if PULL_ZONE is missing (though it might 404 if libraryId is missing in path)
+    // If no pull zone, we can't easily construct a direct MP4 link without the pull zone hostname.
+    // Return the original URL (likely an iframe or library URL)
     return url;
 }
 
