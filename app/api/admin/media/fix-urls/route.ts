@@ -27,11 +27,11 @@ export async function GET(req: NextRequest) {
         ];
 
         for (const [table, column] of targets) {
-            // 1. Fetch broken records
+            // 1. Fetch broken records (any containing 'undefined')
             const { data, error } = await supabase
                 .from(table)
                 .select(`id, ${column}`)
-                .filter(column, 'ilike', 'undefined/%') as any;
+                .filter(column, 'ilike', '%undefined%') as any;
 
             if (error) {
                 console.error(`Error fetching ${table}:`, error);
@@ -44,8 +44,17 @@ export async function GET(req: NextRequest) {
                     const brokenUrl = (row as any)[column] as string;
                     if (!brokenUrl) continue;
                     
-                    const fixedUrl = brokenUrl.replace('undefined/', `${PULL_ZONE}/`);
+                    // Replace 'undefined/' or '/undefined/' or just 'undefined' at the start
+                    // We target common patterns: 'undefined/', '/undefined/', or 'https://.../undefined/'
+                    let fixedUrl = brokenUrl;
+                    if (brokenUrl.includes('undefined/')) {
+                        fixedUrl = brokenUrl.replace(/.*undefined\//, `${PULL_ZONE}/`);
+                    } else if (brokenUrl === 'undefined') {
+                        continue; // skip if it's just the string 'undefined'
+                    }
                     
+                    if (fixedUrl === brokenUrl) continue;
+
                     const { error: updateError } = await supabase
                         .from(table)
                         .update({ [column]: fixedUrl })

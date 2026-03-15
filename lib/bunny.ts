@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY;
 const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME;
 const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'storage'; // default to German storage
-const BUNNY_PULL_ZONE_URL = process.env.BUNNY_PULL_ZONE_URL; // e.g., https://myapp.b-cdn.net
+const PULL_ZONE = process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE_URL || 'https://dancetgt.b-cdn.net';
 
 const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY;
 const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID;
@@ -23,11 +23,11 @@ interface UploadResponse {
  * Uploads an image to Bunny Storage
  */
 export async function uploadToBunnyStorage(file: Buffer | File, fileName: string, folder: string = 'images'): Promise<UploadResponse> {
-    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME || !BUNNY_PULL_ZONE_URL) {
+    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME || !PULL_ZONE || PULL_ZONE.includes('undefined')) {
         return { 
             success: false, 
             url: '', 
-            error: 'Bunny.net Storage configuration missing. (Check BUNNY_PULL_ZONE_URL)' 
+            error: 'Bunny.net Storage configuration missing. (Check NEXT_PUBLIC_BUNNY_PULL_ZONE_URL)' 
         };
     }
 
@@ -51,7 +51,7 @@ export async function uploadToBunnyStorage(file: Buffer | File, fileName: string
 
         return {
             success: true,
-            url: `${BUNNY_PULL_ZONE_URL}/${path}`,
+            url: `${PULL_ZONE}/${path}`,
         };
     } catch (error: any) {
         console.error('Error uploading to Bunny Storage:', error);
