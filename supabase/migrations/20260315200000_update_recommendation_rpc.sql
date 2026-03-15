@@ -31,7 +31,7 @@ BEGIN
     seen_posts AS (
         SELECT post_id 
         FROM public.post_impressions 
-        WHERE user_id = p_user_id AND p_user_id IS NOT NULL
+        WHERE public.post_impressions.user_id = p_user_id AND p_user_id IS NOT NULL
     )
     SELECT 
         p.id,

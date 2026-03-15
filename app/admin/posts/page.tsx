@@ -403,14 +403,14 @@ export default function PostManagement() {
                         </div>
 
                         {/* Post Actions */}
-                        <div className="pt-6 border-t border-white/5 flex items-center gap-3">
+                        <div className="pt-6 border-t border-white/5 flex items-center gap-3 mt-auto sticky bottom-0 bg-zinc-950 pb-6 z-10">
                             <button 
                                 onClick={handleSaveChanges}
                                 disabled={isSaving}
-                                className="flex-1 h-14 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
+                                className="flex-1 h-14 bg-pink-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-pink-600 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
                             >
                                 {isSaving ? (
-                                    <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                                 ) : (
                                     <>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -419,13 +419,17 @@ export default function PostManagement() {
                                 )}
                             </button>
                             
-                            <button 
+                            <button
                                 onClick={() => deletePost(selectedPost.id)}
                                 className="w-14 h-14 bg-zinc-900 border border-white/10 rounded-2xl flex items-center justify-center text-zinc-500 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all active:scale-95"
-                                title="Delete Permanently"
+                                title="Delete permanently"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 6h18"></path>
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                    <line x1="14" y1="11" x2="14" y2="17"></line>
                                 </svg>
                             </button>
                         </div>
