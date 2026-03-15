@@ -452,13 +452,21 @@ function HomeFeedContent() {
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
                     >
                         {post.main_image_url ? (
-                            post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                            post.main_image_url.includes('iframe.mediadelivery.net') ? (
+                                <iframe
+                                    src={`${post.main_image_url}?autoplay=true&muted=${!hasInteracted || isMuted}&loop=true&preload=true`}
+                                    loading="lazy"
+                                    className="absolute inset-0 w-full h-full border-none"
+                                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                    allowFullScreen={true}
+                                />
+                            ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
                                 <video 
                                     src={post.main_image_url} 
                                     className="absolute inset-0 w-full h-full object-cover"
                                     loop
                                     playsInline
-                                    muted={true} // Start muted to avoid browser blocks, effect will unmute
+                                    muted={true}
                                 />
                             ) : (
                                 <img src={post.main_image_url} className="absolute inset-0 w-full h-full object-cover" alt={post.name} />

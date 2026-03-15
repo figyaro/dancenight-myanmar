@@ -70,7 +70,7 @@ export default function PostManagement() {
 
     const handleSelectPost = (post: any) => {
         setSelectedPost(post);
-        setEditCaption(post.content || post.title || '');
+        setEditCaption(post.title || '');
         setNewMediaFile(null);
         setNewMediaPreview(null);
     };
@@ -107,8 +107,7 @@ export default function PostManagement() {
             const { error: updateError } = await supabase
                 .from('posts')
                 .update({
-                    content: editCaption,
-                    title: editCaption, // Update both if needed
+                    title: editCaption, // Use 'title' which exists in the schema
                     main_image_url: mediaUrl,
                     file_size: fileSize,
                     updated_at: new Date().toISOString()
@@ -120,7 +119,6 @@ export default function PostManagement() {
             // 3. Refresh Local State
             setPosts(prev => prev.map(p => p.id === selectedPost.id ? { 
                 ...p, 
-                content: editCaption, 
                 title: editCaption,
                 main_image_url: mediaUrl,
                 file_size: fileSize
@@ -138,7 +136,11 @@ export default function PostManagement() {
 
     const isVideo = (url: string) => {
         if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || url.includes('iframe.mediadelivery.net');
+    };
+
+    const isBunnyStream = (url: string) => {
+        return url && url.includes('iframe.mediadelivery.net');
     };
 
     const formatFileSize = (bytes: number) => {
@@ -179,12 +181,25 @@ export default function PostManagement() {
                         {/* Media Content */}
                         <div className="absolute inset-0 w-full h-full">
                             {post.main_image_url ? (
-                                isVideo(post.main_image_url) ? (
+                                isBunnyStream(post.main_image_url) ? (
+                                    <iframe
+                                        src={post.main_image_url}
+                                        className="w-full h-full border-none pointer-events-none"
+                                        loading="lazy"
+                                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                        allowFullScreen
+                                    />
+                                ) : isVideo(post.main_image_url) ? (
                                     <video 
                                         src={post.main_image_url} 
                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         muted
                                         playsInline
+                                        onMouseOver={(e) => e.currentTarget.play()}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.pause();
+                                            e.currentTarget.currentTime = 0;
+                                        }}
                                     />
                                 ) : (
                                     <img 
@@ -221,13 +236,13 @@ export default function PostManagement() {
                         <div className="absolute bottom-0 inset-x-0 p-4 pt-10 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
                             <div className="flex items-center gap-2 mb-2">
                                 <div className="w-5 h-5 rounded-full overflow-hidden border border-white/20">
-                                    <img src={post.user?.avatar_url || '/placeholder-avatar.png'} alt="" className="w-full h-full object-cover" />
+                                    <img src={post.user?.avatar_url || '/placeholder-avatar.png'} className="w-full h-full object-cover" />
                                 </div>
                                 <span className="text-[9px] font-black text-white/90 truncate">{post.user?.nickname || 'Unknown'}</span>
                             </div>
 
                             <p className="text-[10px] text-zinc-300 line-clamp-2 font-medium leading-relaxed mb-3">
-                                {post.content || post.title || 'No caption'}
+                                {post.title || 'No caption'}
                             </p>
 
                             <div className="flex items-center justify-between py-2 border-t border-white/10">
@@ -274,11 +289,29 @@ export default function PostManagement() {
                                     <img src={newMediaPreview} className="w-full h-full object-cover" />
                                 )
                             ) : (
-                                isVideo(selectedPost.main_image_url) ? (
-                                    <video src={selectedPost.main_image_url} className="w-full h-full object-cover" controls autoPlay loop />
-                                ) : (
-                                    <img src={selectedPost.main_image_url} className="w-full h-full object-cover" />
-                                )
+                                <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
+                                    {selectedPost.main_image_url && (
+                                        isBunnyStream(selectedPost.main_image_url) ? (
+                                            <iframe
+                                                src={selectedPost.main_image_url}
+                                                className="w-full h-full border-none"
+                                                loading="lazy"
+                                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                                allowFullScreen
+                                            />
+                                        ) : isVideo(selectedPost.main_image_url) ? (
+                                            <video 
+                                                src={selectedPost.main_image_url} 
+                                                className="w-full h-full object-contain"
+                                                controls
+                                                autoPlay
+                                                muted
+                                            />
+                                        ) : (
+                                            <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
+                                        )
+                                    )}
+                                </div>
                             )}
 
                             {/* Change Media Button */}

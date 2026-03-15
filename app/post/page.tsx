@@ -18,6 +18,7 @@ export default function PostPage() {
     // Form state
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
     const [caption, setCaption] = useState('');
     const [content, setContent] = useState('');
     const [area, setArea] = useState('');
@@ -67,12 +68,33 @@ export default function PostPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setMediaFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setMediaPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            if (file.type.startsWith('video/')) {
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                video.onloadedmetadata = function() {
+                    window.URL.revokeObjectURL(video.src);
+                    if (video.duration > 15.5) { // Allowing a small buffer
+                        setError('16秒以上の動画は現在アップロードできません。15秒以内の動画を選択してください。');
+                        setMediaFile(null);
+                        setMediaPreview(null);
+                        setMediaType(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                    } else {
+                        setMediaFile(file);
+                        setMediaType('video');
+                        setMediaPreview(URL.createObjectURL(file));
+                    }
+                };
+                video.src = URL.createObjectURL(file);
+            } else {
+                setMediaFile(file);
+                setMediaType('image');
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setMediaPreview(reader.result as string);
+                };
+                reader.readAsDataURL(file);
+            }
         }
     };
 
@@ -171,7 +193,15 @@ export default function PostPage() {
                         className={`w-full aspect-[4/5] bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center relative overflow-hidden transition-all hover:bg-zinc-800/50 ${mediaPreview ? 'border-pink-500/50' : 'hover:border-zinc-700'}`}
                     >
                         {mediaPreview ? (
-                            <img src={mediaPreview} className="w-full h-full object-cover" alt="Preview" />
+                            mediaType === 'video' ? (
+                                <video 
+                                    src={mediaPreview} 
+                                    className="w-full h-full object-cover" 
+                                    controls 
+                                />
+                            ) : (
+                                <img src={mediaPreview} className="w-full h-full object-cover" alt="Preview" />
+                            )
                         ) : (
                             <>
                                 <div className="w-12 h-12 bg-pink-500/10 rounded-full flex items-center justify-center text-pink-500 mb-3">

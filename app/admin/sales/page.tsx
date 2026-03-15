@@ -69,38 +69,29 @@ export default function SalesManagement() {
 
     const fetchLeads = async () => {
         setLoading(true);
-        console.log('--- FETCH LEADS DIAGNOSTIC START ---');
+        console.log('--- FETCH LEADS START ---');
+        
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            console.log('Current Auth User ID:', user?.id);
-
-            // 1. Table Check
-            const { error: tableError } = await supabase.from('sales_leads').select('id').limit(1);
-            if (tableError) {
-                console.error('Table/RLS Error:', tableError);
-                if (tableError.code === '42P01') {
-                    alert('Database Error: Table "sales_leads" does not exist. Did you run the migration?');
-                } else {
-                    alert(`Database Error: ${tableError.message} (Code: ${tableError.code})`);
-                }
-                setLoading(false);
-                return;
+            // 1. Fetch sales reps separately
+            const { data: repsData, error: repsError } = await supabase
+                .from('users')
+                .select('id, nickname, email')
+                .in('role', ['admin', 'super admin', 'admin sales']);
+            
+            if (repsError) {
+                console.error('Error fetching sales reps:', repsError);
+            } else {
+                setSalesReps(repsData || []);
             }
 
-            // 2. Fetch with join
-            console.log('Attempting fetch with join...');
-            const { data, error } = await supabase
+            // 2. Fetch leads with fallback for join
+            let { data, error } = await supabase
                 .from('sales_leads')
-                .select(`
-                    *,
-                    sales_rep:users(nickname)
-                `)
+                .select('*, sales_rep:users(nickname)')
                 .order('created_at', { ascending: false });
             
             if (error) {
-                console.error('Fetch Join Error:', error);
-                // Fallback: Try without join
-                console.log('Attempting fallback fetch without join...');
+                console.warn('Join fetch failed, falling back:', error);
                 const { data: fallbackData, error: fallbackError } = await supabase
                     .from('sales_leads')
                     .select('*')
@@ -109,15 +100,14 @@ export default function SalesManagement() {
                 if (fallbackError) throw fallbackError;
                 setLeads(fallbackData || []);
             } else {
-                console.log(`Fetched ${data?.length || 0} leads successfully.`);
                 setLeads(data || []);
             }
         } catch (err: any) {
-            console.error('Unexpected Fetch Error:', err);
-            alert('Fetch Error: ' + err.message);
+            console.error('Global Fetch Error:', err);
+            alert('Error loading data: ' + err.message);
         } finally {
             setLoading(false);
-            console.log('--- FETCH LEADS DIAGNOSTIC END ---');
+            console.log('--- FETCH LEADS END ---');
         }
     };
 

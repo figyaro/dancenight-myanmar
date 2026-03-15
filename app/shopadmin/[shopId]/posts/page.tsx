@@ -23,7 +23,7 @@ export default function ShopPostManagement() {
     // Create Modal State
     const [shopName, setShopName] = useState('Shop Admin');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [content, setContent] = useState('');
+    const [title, setTitle] = useState('');
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +68,11 @@ export default function ShopPostManagement() {
     };
 
     const handleSubmit = async () => {
-        if (!content.trim() && !mediaFile) return;
+        if (!title.trim() && !mediaFile) {
+            alert('Please provide a title or an image');
+            setIsSubmitting(false);
+            return;
+        }
         setIsSubmitting(true);
 
         try {
@@ -92,7 +96,7 @@ export default function ShopPostManagement() {
                 file_size: mediaFile ? mediaFile.size : 0, // Store file size
                 location_name: 'Shop Update',
                 name: shopName, // Use actual shop name
-                title: content, // Use full content as title
+                title: title, // Use full title
                 area: 'Shop',
                 rating: 5.0,
                 price_per_hour: 0,
@@ -103,7 +107,7 @@ export default function ShopPostManagement() {
             
             // Success
             setIsCreateModalOpen(false);
-            setContent('');
+            setTitle('');
             setMediaFile(null);
             setMediaPreview(null);
             setUploadProgress(0); // Reset progress
@@ -125,7 +129,11 @@ export default function ShopPostManagement() {
 
     const isVideo = (url: string) => {
         if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || url.includes('iframe.mediadelivery.net');
+    };
+
+    const isBunnyStream = (url: string) => {
+        return url && url.includes('iframe.mediadelivery.net');
     };
 
     if (loading) return <LoadingScreen fullScreen={false} />;
@@ -155,7 +163,15 @@ export default function ShopPostManagement() {
                         <div key={post.id} className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-[2.5rem] overflow-hidden group hover:border-white/10 transition-all">
                             <div className="aspect-square bg-zinc-800 flex items-center justify-center text-3xl relative overflow-hidden">
                                 {mediaUrl ? (
-                                    video ? (
+                                    isBunnyStream(mediaUrl) ? (
+                                        <iframe
+                                            src={mediaUrl}
+                                            className="w-full h-full border-none pointer-events-none"
+                                            loading="lazy"
+                                            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                            allowFullScreen
+                                        />
+                                    ) : video ? (
                                         <video 
                                             src={mediaUrl} 
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -298,8 +314,8 @@ export default function ShopPostManagement() {
                             <div>
                                 <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 px-2">Caption & Content</label>
                                 <textarea 
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
                                     placeholder="Write something inspiring about your latest updates, exclusive deals, or behind the scenes access..."
                                     className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] p-8 text-white placeholder-zinc-700 focus:outline-none focus:border-pink-500/50 min-h-[250px] resize-none transition-all font-medium leading-relaxed"
                                 />
@@ -310,7 +326,7 @@ export default function ShopPostManagement() {
                         <div className="p-8 bg-black/50 backdrop-blur-xl border-t border-white/5">
                             <button 
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || (!content.trim() && !mediaFile)}
+                                disabled={isSubmitting || (!title.trim() && !mediaFile)}
                                 className="w-full py-6 bg-white text-black hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-3xl font-black text-xs tracking-[0.4em] uppercase transition-all shadow-[0_20px_40px_rgba(255,255,255,0.1)] active:scale-[0.98] relative overflow-hidden group"
                             >
                                 <span className="relative z-10">
