@@ -9,6 +9,7 @@ import { trackAnalyticsEvent } from '../../../lib/analytics';
 import LoadingScreen from '../../components/LoadingScreen';
 import BottomNav from '../../components/BottomNav';
 import { SNSLogos } from '../../components/SNSLogos';
+import { isBunnyStream, getBunnyStreamVideoUrl } from '../../../lib/bunny';
 
 interface Room {
     id: string;
@@ -209,9 +210,9 @@ export default function ShopDetail() {
         });
     };
 
-    const isVideo = (url: string) => {
+    const isVideo = (url: string | null) => {
         if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
     };
 
     const handleBookingSubmit = async () => {
@@ -646,7 +647,25 @@ export default function ShopDetail() {
                                         className="aspect-square bg-zinc-900 rounded-2xl overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
                                     >
                                         {post.main_image_url ? (
-                                            isVideo(post.main_image_url) ? (
+                                            isBunnyStream(post.main_image_url) ? (
+                                                <div className="w-full h-full relative">
+                                                    <video 
+                                                        src={getBunnyStreamVideoUrl(post.main_image_url) || ''} 
+                                                        className="w-full h-full object-cover"
+                                                        muted
+                                                        playsInline
+                                                        loop
+                                                        onMouseOver={(e) => e.currentTarget.play()}
+                                                        onMouseOut={(e) => {
+                                                            e.currentTarget.pause();
+                                                            e.currentTarget.currentTime = 0;
+                                                        }}
+                                                    />
+                                                    <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                    </div>
+                                                </div>
+                                            ) : isVideo(post.main_image_url) ? (
                                                 <div className="w-full h-full relative">
                                                     <video 
                                                         src={post.main_image_url} 

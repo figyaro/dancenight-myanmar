@@ -60,6 +60,38 @@ export async function uploadToBunnyStorage(file: Buffer | File, fileName: string
 }
 
 /**
+ * Checks if a URL is a Bunny Stream URL
+ */
+export function isBunnyStream(url: string | null): boolean {
+    if (!url) return false;
+    return url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com');
+}
+
+/**
+ * Transforms a Bunny Stream player URL into a direct video URL (MP4 fallback)
+ * Note: Requires "Direct File Access" to be enabled in Bunny Stream Settings.
+ * Format: https://{pullzone}.b-cdn.net/{videoId}/play.720p.mp4
+ */
+export function getBunnyStreamVideoUrl(url: string | null): string | null {
+    if (!url || !isBunnyStream(url)) return url;
+    
+    // Extract video ID from standard player URL
+    // https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
+    const match = url.match(/\/play\/\d+\/([a-z0-9-]+)/i);
+    if (!match) return url;
+    
+    const videoId = match[1];
+    
+    // Use the Pull Zone if available, otherwise fallback to the global edge
+    // Note: The user reported edgezone-gt.bunnyinfra.net failing, 
+    // so we use the confirmed pull zone or a standard pattern.
+    const streamPullZone = process.env.NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE || 'video.bunnycdn.com';
+    
+    // Direct MP4 playback (often play_720p.mp4 or similar)
+    return `https://${streamPullZone}/${videoId}/play_720p.mp4`;
+}
+
+/**
  * Uploads a video to Bunny Stream
  * Note: This involves creating a video entry and then uploading the content.
  */

@@ -5,6 +5,13 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
+import { isBunnyStream, getBunnyStreamVideoUrl } from '../../../lib/bunny';
+
+const isVideo = (url: string | null) => {
+    if (!url) return false;
+    // Check if it's a direct video link or a Bunny Stream iframe link
+    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
+};
 
 export default function PostManagement() {
     const [posts, setPosts] = useState<any[]>([]);
@@ -182,12 +189,17 @@ export default function PostManagement() {
                         <div className="absolute inset-0 w-full h-full">
                             {post.main_image_url ? (
                                 isBunnyStream(post.main_image_url) ? (
-                                    <iframe
-                                        src={post.main_image_url}
-                                        className="w-full h-full border-none pointer-events-none"
-                                        loading="lazy"
-                                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                        allowFullScreen
+                                    <video
+                                        src={getBunnyStreamVideoUrl(post.main_image_url) || ''}
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                        muted
+                                        playsInline
+                                        loop
+                                        onMouseOver={(e) => e.currentTarget.play()}
+                                        onMouseOut={(e) => {
+                                            e.currentTarget.pause();
+                                            e.currentTarget.currentTime = 0;
+                                        }}
                                     />
                                 ) : isVideo(post.main_image_url) ? (
                                     <video 
@@ -292,12 +304,11 @@ export default function PostManagement() {
                                 <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
                                     {selectedPost.main_image_url && (
                                         isBunnyStream(selectedPost.main_image_url) ? (
-                                            <iframe
-                                                src={selectedPost.main_image_url}
-                                                className="w-full h-full border-none"
-                                                loading="lazy"
-                                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                                allowFullScreen
+                                            <video
+                                                src={getBunnyStreamVideoUrl(selectedPost.main_image_url) || ''}
+                                                className="w-full h-full object-cover"
+                                                controls
+                                                playsInline
                                             />
                                         ) : isVideo(selectedPost.main_image_url) ? (
                                             <video 

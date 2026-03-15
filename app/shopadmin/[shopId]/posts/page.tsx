@@ -6,6 +6,7 @@ import { supabase } from '../../../../lib/supabase';
 import { getEffectiveUserId } from '../../../../lib/auth-util';
 import LoadingScreen from '../../../components/LoadingScreen';
 import CircularProgress from '../../../components/CircularProgress';
+import { isBunnyStream, getBunnyStreamVideoUrl } from '../../../../lib/bunny';
 
 interface Post {
     id: string;
@@ -127,14 +128,12 @@ export default function ShopPostManagement() {
         else fetchPosts();
     };
 
-    const isVideo = (url: string) => {
-        if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || url.includes('iframe.mediadelivery.net');
-    };
 
-    const isBunnyStream = (url: string) => {
-        return url && url.includes('iframe.mediadelivery.net');
-    };
+const isVideo = (url: string | null) => {
+    if (!url) return false;
+    // Check if it's a direct video link or a Bunny Stream iframe link
+    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
+};
 
     if (loading) return <LoadingScreen fullScreen={false} />;
 
@@ -164,12 +163,17 @@ export default function ShopPostManagement() {
                             <div className="aspect-square bg-zinc-800 flex items-center justify-center text-3xl relative overflow-hidden">
                                 {mediaUrl ? (
                                     isBunnyStream(mediaUrl) ? (
-                                        <iframe
-                                            src={mediaUrl}
-                                            className="w-full h-full border-none pointer-events-none"
-                                            loading="lazy"
-                                            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                            allowFullScreen
+                                        <video
+                                            src={getBunnyStreamVideoUrl(mediaUrl) || ''}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                            muted
+                                            playsInline
+                                            loop
+                                            onMouseOver={(e) => e.currentTarget.play()}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.pause();
+                                                e.currentTarget.currentTime = 0;
+                                            }}
                                         />
                                     ) : video ? (
                                         <video 
