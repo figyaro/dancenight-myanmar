@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
             const { data, error } = await supabase
                 .from(table)
                 .select(`id, ${column}`)
-                .filter(column, 'ilike', 'undefined/%');
+                .filter(column, 'ilike', 'undefined/%') as any;
 
             if (error) {
                 console.error(`Error fetching ${table}:`, error);
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
             if (data && data.length > 0) {
                 console.log(`[Repair] Found ${data.length} broken records in ${table}`);
                 for (const row of data) {
-                    const brokenUrl = row[column] as string;
+                    const brokenUrl = (row as any)[column] as string;
                     if (!brokenUrl) continue;
                     
                     const fixedUrl = brokenUrl.replace('undefined/', `${PULL_ZONE}/`);
