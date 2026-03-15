@@ -75,20 +75,16 @@ export function isBunnyStream(url: string | null): boolean {
 export function getBunnyStreamVideoUrl(url: string | null): string | null {
     if (!url || !isBunnyStream(url)) return url;
     
-    // Extract video ID from standard player URL
+    // Extract library ID and video ID from standard player URL
     // https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
-    const match = url.match(/\/play\/\d+\/([a-z0-9-]+)/i);
+    const match = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
     if (!match) return url;
     
-    const videoId = match[1];
+    const libraryId = match[1];
+    const videoId = match[2];
     
-    // Use the Pull Zone if available, otherwise fallback to the global edge
-    // Note: The user reported edgezone-gt.bunnyinfra.net failing, 
-    // so we use the confirmed pull zone or a standard pattern.
-    const streamPullZone = process.env.NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE || 'video.bunnycdn.com';
-    
-    // Direct MP4 playback (often play_720p.mp4 or similar)
-    return `https://${streamPullZone}/${videoId}/play_720p.mp4`;
+    // Default to library-specific direct access URL if no pull zone is specified
+    return `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play_720p.mp4`;
 }
 
 /**

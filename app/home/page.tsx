@@ -115,7 +115,7 @@ function HomeFeedContent() {
 
                 // Fetch recommended posts using RPC
                 const { data, error } = await supabase
-                    .rpc('get_recommended_posts', { p_user_id: effectiveUserId });
+                    .rpc('get_recommended_posts', { p_user_id: effectiveUserId || null });
 
                 if (error) {
                     console.warn("RPC failed, falling back to standard query", error);
