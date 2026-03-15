@@ -176,7 +176,6 @@ export default function PostManagement() {
                             {post.main_image_url ? (
                                 isBunnyStream(post.main_image_url) ? (
                                     <video
-                                        src={getBunnyStreamVideoUrl(post.main_image_url) || ''}
                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         muted
                                         playsInline
@@ -192,7 +191,6 @@ export default function PostManagement() {
                                     </video>
                                 ) : isVideo(post.main_image_url) ? (
                                     <video 
-                                        src={post.main_image_url} 
                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         muted
                                         playsInline
@@ -280,138 +278,144 @@ export default function PostManagement() {
                 title="Post Inspection"
             >
                 {selectedPost && (
-                    <div className="space-y-8">
-                        {/* Media Preview Area */}
-                        <div className="relative aspect-[9/16] bg-black rounded-3xl border border-white/10 overflow-hidden shadow-2xl mx-auto max-w-[300px]">
-                            {newMediaPreview ? (
-                                isVideo(newMediaFile?.name || '') ? (
-                                    <video src={newMediaPreview} className="w-full h-full object-cover" controls autoPlay />
+                    <div className="flex flex-col h-[calc(100vh-100px)]">
+                        <div className="flex-1 overflow-y-auto space-y-8 pb-6 pr-2">
+                            {/* Media Preview Area */}
+                            <div className="relative aspect-[9/16] bg-black rounded-3xl border border-white/10 overflow-hidden shadow-2xl mx-auto max-w-[300px]">
+                                {newMediaPreview ? (
+                                    isVideo(newMediaFile?.name || '') ? (
+                                        <video className="w-full h-full object-cover" controls autoPlay muted playsInline>
+                                            <source src={newMediaPreview} type="video/mp4" />
+                                        </video>
+                                    ) : (
+                                        <img src={newMediaPreview} className="w-full h-full object-cover" />
+                                    )
                                 ) : (
-                                    <img src={newMediaPreview} className="w-full h-full object-cover" />
-                                )
-                            ) : (
-                                <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
-                                    {selectedPost.main_image_url && (
-                                        isBunnyStream(selectedPost.main_image_url) ? (
-                                            <iframe
-                                                src={getBunnyStreamEmbedUrl(selectedPost.main_image_url) || ''}
-                                                loading="lazy"
-                                                style={{ border: 0 }}
-                                                className="w-full h-full"
-                                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                                allowFullScreen
-                                            ></iframe>
-                                        ) : isVideo(selectedPost.main_image_url) ? (
-                                            <video 
-                                                src={selectedPost.main_image_url} 
-                                                className="w-full h-full object-contain"
-                                                controls
-                                                autoPlay
-                                                muted
-                                                preload="metadata"
-                                            >
-                                                <source src={selectedPost.main_image_url} type="video/mp4" />
-                                            </video>
-                                        ) : (
-                                            <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
-                                        )
-                                    )}
-                                </div>
-                            )}
+                                    <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
+                                        {selectedPost.main_image_url && (
+                                            isBunnyStream(selectedPost.main_image_url) ? (
+                                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
+                                                    <iframe
+                                                        src={`${getBunnyStreamEmbedUrl(selectedPost.main_image_url)}?autoplay=true&muted=true&loop=true&preload=true&responsive=true`}
+                                                        loading="lazy"
+                                                        style={{ border: 0, width: '100%', height: '100%' }}
+                                                        className="w-full h-full object-cover" 
+                                                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                                        allowFullScreen
+                                                    ></iframe>
+                                                </div>
+                                            ) : isVideo(selectedPost.main_image_url) ? (
+                                                <video 
+                                                    className="w-full h-full object-contain"
+                                                    controls
+                                                    autoPlay
+                                                    muted
+                                                    playsInline
+                                                    preload="metadata"
+                                                >
+                                                    <source src={selectedPost.main_image_url} type="video/mp4" />
+                                                </video>
+                                            ) : (
+                                                <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
+                                            )
+                                        )}
+                                    </div>
+                                )}
 
-                            {/* Change Media Button */}
-                            <button 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="absolute bottom-4 right-4 w-12 h-12 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white flex items-center justify-center shadow-xl transition-all active:scale-95 border border-pink-400/30"
-                                title="Change Media"
-                            >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                                </svg>
-                            </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleFileChange} 
-                                hidden 
-                                accept="image/*,video/*"
-                            />
-                        </div>
-
-                        {/* Metadata Grid */}
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Identity Section (Enlarged) */}
-                            <div className="col-span-2 p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-xl">
-                                    <img src={selectedPost.user?.avatar_url || '/placeholder-avatar.png'} className="w-full h-full object-cover" />
-                                </div>
-                                <div>
-                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-0.5">Author Identity</span>
-                                    <h4 className="text-xl font-black text-white leading-tight">{selectedPost.user?.nickname || 'Unknown User'}</h4>
-                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight mt-1 truncate max-w-[200px]">ID: {selectedPost.id}</p>
-                                </div>
+                                {/* Change Media Button */}
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="absolute bottom-4 right-4 w-12 h-12 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white flex items-center justify-center shadow-xl transition-all active:scale-95 border border-pink-400/30"
+                                    title="Change Media"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                    </svg>
+                                </button>
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    onChange={handleFileChange} 
+                                    hidden 
+                                    accept="image/*,video/*"
+                                />
                             </div>
 
-                            {/* Analytics Section */}
-                            <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
-                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">Performance Data</span>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Impressions</span>
-                                        <span className="text-white font-black">{selectedPost.impression_count || 0}</span>
+                            {/* Metadata Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Identity Section (Enlarged) */}
+                                <div className="col-span-2 p-6 bg-white/5 border border-white/5 rounded-3xl flex items-center gap-4">
+                                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-xl">
+                                        <img src={selectedPost.user?.avatar_url || '/placeholder-avatar.png'} className="w-full h-full object-cover" />
                                     </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Likes</span>
-                                        <span className="text-white font-black">{selectedPost.likes_count || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Comments</span>
-                                        <span className="text-white font-black">{selectedPost.comments_count || 0}</span>
+                                    <div>
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-0.5">Author Identity</span>
+                                        <h4 className="text-xl font-black text-white leading-tight">{selectedPost.user?.nickname || 'Unknown User'}</h4>
+                                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight mt-1 truncate max-w-[200px]">ID: {selectedPost.id}</p>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Technical Metadata */}
-                            <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
-                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">File Technicals</span>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Size</span>
-                                        <span className="text-white font-black">{formatFileSize(selectedPost.file_size)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Location</span>
-                                        <span className="text-white font-black truncate max-w-[80px]" title={selectedPost.location_name}>{selectedPost.location_name || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-zinc-400 font-bold">Date</span>
-                                        <span className="text-white font-black">{new Date(selectedPost.created_at).toLocaleDateString()}</span>
-                                    </div>
-                                    {isBunnyStream(selectedPost.main_image_url) && (
-                                        <div className="col-span-2 mt-2 pt-2 border-t border-white/5">
-                                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Direct Video URL</span>
-                                            <div className="bg-black/40 p-2 rounded-lg break-all text-[9px] font-mono text-pink-400 border border-white/5">
-                                                {getBunnyStreamVideoUrl(selectedPost.main_image_url)}
-                                            </div>
+                                {/* Analytics Section */}
+                                <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
+                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">Performance Data</span>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Impressions</span>
+                                            <span className="text-white font-black">{selectedPost.impression_count || 0}</span>
                                         </div>
-                                    )}
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Likes</span>
+                                            <span className="text-white font-black">{selectedPost.likes_count || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Comments</span>
+                                            <span className="text-white font-black">{selectedPost.comments_count || 0}</span>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                {/* Technical Metadata */}
+                                <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl">
+                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-3">File Technicals</span>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Size</span>
+                                            <span className="text-white font-black">{formatFileSize(selectedPost.file_size)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Location</span>
+                                            <span className="text-white font-black truncate max-w-[80px]" title={selectedPost.location_name}>{selectedPost.location_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-zinc-400 font-bold">Date</span>
+                                            <span className="text-white font-black">{new Date(selectedPost.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        {isBunnyStream(selectedPost.main_image_url) && (
+                                            <div className="col-span-2 mt-2 pt-2 border-t border-white/5">
+                                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Direct Video URL</span>
+                                                <div className="bg-black/40 p-2 rounded-lg break-all text-[9px] font-mono text-pink-400 border border-white/5">
+                                                    {getBunnyStreamVideoUrl(selectedPost.main_image_url)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Caption Editor */}
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Post Caption</label>
+                                <textarea 
+                                    value={editCaption}
+                                    onChange={(e) => setEditCaption(e.target.value)}
+                                    className="w-full h-32 bg-zinc-950 border border-white/10 rounded-2xl p-4 text-xs font-medium text-zinc-200 focus:outline-none focus:border-pink-500 transition-colors resize-none mb-10"
+                                    placeholder="Edit post caption..."
+                                />
                             </div>
                         </div>
 
-                        {/* Caption Editor */}
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Post Caption</label>
-                            <textarea 
-                                value={editCaption}
-                                onChange={(e) => setEditCaption(e.target.value)}
-                                className="w-full h-32 bg-zinc-950 border border-white/10 rounded-2xl p-4 text-xs font-medium text-zinc-200 focus:outline-none focus:border-pink-500 transition-colors resize-none"
-                                placeholder="Edit post caption..."
-                            />
-                        </div>
-
-                        {/* Post Actions */}
-                        <div className="pt-6 border-t border-white/5 flex items-center gap-3 mt-auto sticky bottom-0 bg-zinc-950 pb-6 z-10">
+                        {/* Post Actions (Fixed at Bottom) */}
+                        <div className="pt-4 mt-auto bg-zinc-950/90 backdrop-blur-xl border-t border-white/10 p-4 -mx-6 -mb-6 px-6 flex items-center gap-3 shrink-0">
                             <button 
                                 onClick={handleSaveChanges}
                                 disabled={isSaving}
