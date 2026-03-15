@@ -42,6 +42,8 @@ export default function SalesManagement() {
     const [extractionMode, setExtractionMode] = useState(false);
     const [googleSearchQuery, setGoogleSearchQuery] = useState('');
     const [extractedResults, setExtractedResults] = useState<any[]>([]);
+    const [pagination, setPagination] = useState<any>(null);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [conversionForm, setConversionForm] = useState({
         owner_email: '',
@@ -208,9 +210,62 @@ export default function SalesManagement() {
         }
     };
 
+    const fetchAndFormatDetails = async (places: any[], paginationObj: any) => {
+        const google = (window as any).google;
+        const dummyDiv = document.createElement('div');
+        const service = new google.maps.places.PlacesService(dummyDiv);
+
+        // Get existing place IDs to exclude duplicates
+        const existingPlaceIds = new Set(leads.map(l => l.google_place_id).filter(Boolean));
+
+        const newDetailedResults = await Promise.all(
+            places.map(async (place) => {
+                // Deduplication
+                if (existingPlaceIds.has(place.place_id)) return null;
+
+                return new Promise((resolve) => {
+                    service.getDetails({ 
+                        placeId: place.place_id,
+                        fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'photos', 'types', 'place_id', 'rating']
+                    }, (details: any, dStatus: any) => {
+                        if (dStatus === google.maps.places.PlacesServiceStatus.OK && details) {
+                            let cat = 'others';
+                            const t = details.types || [];
+                            if (t.includes('night_club') || t.includes('bar')) cat = 'CLUB';
+                            else if (t.includes('ktv')) cat = 'KTV';
+                            else if (t.includes('spa')) cat = 'SPA';
+                            else if (t.includes('massage')) cat = 'Massage';
+                            else if (t.includes('restaurant')) cat = 'RESTAURANT';
+
+                            resolve({
+                                name: details.name,
+                                address: details.formatted_address,
+                                phone: details.formatted_phone_number || '',
+                                website: details.website || '',
+                                category: cat,
+                                google_place_id: details.place_id,
+                                rating: details.rating,
+                                photo_url: details.photos?.[0]?.getUrl({ maxWidth: 400 }) || null
+                            });
+                        } else {
+                            resolve(null); // Skip if details fail
+                        }
+                    });
+                });
+            })
+        );
+
+        const filtered = newDetailedResults.filter(Boolean);
+        setExtractedResults(prev => paginationObj?.hasNextPage ? [...prev, ...filtered] : filtered);
+        setPagination(paginationObj);
+        setIsLoadingMore(false);
+        setLoading(false);
+    };
+
     const searchGoogleMaps = async () => {
         if (!googleSearchQuery) return;
         setLoading(true);
+        setExtractedResults([]);
 
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
@@ -228,71 +283,23 @@ export default function SalesManagement() {
         }
 
         const google = (window as any).google;
-        if (!google) {
-            alert('Failed to load Google SDK');
-            setLoading(false);
-            return;
-        }
+        const dummyDiv = document.createElement('div');
+        const service = new google.maps.places.PlacesService(dummyDiv);
 
-        try {
-            const dummyDiv = document.createElement('div');
-            const service = new google.maps.places.PlacesService(dummyDiv);
-
-            service.textSearch({ query: googleSearchQuery }, async (results: any[], status: any) => {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                    // Fetch details for top 10 results to get phone/website/photos
-                    const detailedResults = await Promise.all(
-                        results.slice(0, 10).map(async (place) => {
-                            return new Promise((resolve) => {
-                                service.getDetails({ 
-                                    placeId: place.place_id,
-                                    fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'photos', 'types', 'place_id', 'rating']
-                                }, (details: any, dStatus: any) => {
-                                    if (dStatus === google.maps.places.PlacesServiceStatus.OK && details) {
-                                        // Category mapping
-                                        let cat = 'others';
-                                        const t = details.types || [];
-                                        if (t.includes('night_club') || t.includes('bar')) cat = 'CLUB';
-                                        else if (t.includes('ktv')) cat = 'KTV';
-                                        else if (t.includes('spa')) cat = 'SPA';
-                                        else if (t.includes('massage')) cat = 'Massage';
-                                        else if (t.includes('restaurant')) cat = 'RESTAURANT';
-
-                                        resolve({
-                                            name: details.name,
-                                            address: details.formatted_address,
-                                            phone: details.formatted_phone_number || '',
-                                            website: details.website || '',
-                                            category: cat,
-                                            google_place_id: details.place_id,
-                                            rating: details.rating,
-                                            photo_url: details.photos?.[0]?.getUrl({ maxWidth: 400 }) || null
-                                        });
-                                    } else {
-                                        resolve({
-                                            name: place.name,
-                                            address: place.formatted_address,
-                                            phone: '',
-                                            website: '',
-                                            category: 'others',
-                                            google_place_id: place.place_id,
-                                            rating: place.rating,
-                                            photo_url: null
-                                        });
-                                    }
-                                });
-                            });
-                        })
-                    );
-                    setExtractedResults(detailedResults);
-                } else {
-                    alert('Search failed: ' + status);
-                }
+        service.textSearch({ query: googleSearchQuery }, (results: any[], status: any, paginationObj: any) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                fetchAndFormatDetails(results, paginationObj);
+            } else {
+                alert('Search failed: ' + status);
                 setLoading(false);
-            });
-        } catch (err: any) {
-            alert('Search error: ' + err.message);
-            setLoading(false);
+            }
+        });
+    };
+
+    const loadMoreResults = () => {
+        if (pagination && pagination.hasNextPage) {
+            setIsLoadingMore(true);
+            pagination.nextPage();
         }
     };
 
@@ -315,6 +322,8 @@ export default function SalesManagement() {
             else alert('Import Error: ' + error.message);
         } else {
             alert('Success! Imported ' + result.name);
+            // Remove from extracted results immediately
+            setExtractedResults(prev => prev.filter(r => r.google_place_id !== result.google_place_id));
             fetchLeads();
         }
     };
@@ -593,6 +602,28 @@ export default function SalesManagement() {
                                     </div>
                                 ))}
                             </div>
+
+                            {pagination && pagination.hasNextPage && (
+                                <div className="mt-12 text-center">
+                                    <button 
+                                        onClick={loadMoreResults}
+                                        disabled={isLoadingMore}
+                                        className="px-12 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 flex items-center gap-3 mx-auto"
+                                    >
+                                        {isLoadingMore ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                Loading More...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 13l5 5 5-5M7 6l5 5 5-5"/></svg>
+                                                Load More Results
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
