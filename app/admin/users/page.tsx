@@ -40,13 +40,14 @@ export default function UserManagement() {
         setLoading(false);
     };
 
-    const ROLES = ['user', 'dancer', 'shop', 'admin', 'super admin'];
+    const ROLES = ['user', 'dancer', 'shop', 'admin', 'super admin', 'admin sales'];
     const ROLE_COLORS: Record<string, string> = {
         'user': 'bg-zinc-800 text-zinc-500 border-zinc-700',
         'dancer': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
         'shop': 'bg-green-500/10 text-green-400 border-green-500/20',
         'admin': 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-        'super admin': 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+        'super admin': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        'admin sales': 'bg-amber-500/10 text-amber-400 border-amber-500/20'
     };
 
     const updateRole = async (userId: string, newRole: string) => {

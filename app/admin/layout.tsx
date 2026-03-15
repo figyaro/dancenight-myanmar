@@ -39,16 +39,20 @@ const Icons = {
     ),
     Home: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    ),
+    Sales: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16 8-8 8"/><path d="m12 16 4-4-4-4"/></svg>
     )
 };
 
-const MENU_ITEMS = [
+const ALL_MENU_ITEMS = [
     { name: 'Dashboard', icon: Icons.Dashboard, path: '/admin' },
     { name: 'Users', icon: Icons.Users, path: '/admin/users' },
     { name: 'Dancers', icon: Icons.Dancers, path: '/admin/dancers' },
     { name: 'Reservations', icon: Icons.Reservations, path: '/admin/reservations' },
     { name: 'Posts', icon: Icons.Posts, path: '/admin/posts' },
     { name: 'Shops', icon: Icons.Shops, path: '/admin/shops' },
+    { name: 'Sales', icon: Icons.Sales, path: '/admin/sales' },
     { name: 'Events', icon: Icons.Events, path: '/admin/events' },
     { name: 'Plans', icon: Icons.Plans, path: '/admin/plans' },
     { name: 'Translations', icon: Icons.Translations, path: '/admin/translations' },
@@ -59,6 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [loading, setLoading] = useState(true);
     const [authorized, setAuthorized] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [userRole, setUserRole] = useState<string>('');
     const router = useRouter();
     const pathname = usePathname();
 
@@ -115,7 +120,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 }
 
                 const role = profile.role?.toString().trim().toLowerCase();
-                const isAuthorized = role === 'admin' || role === 'super admin';
+                setUserRole(role || '');
+                const isAuthorized = role === 'admin' || role === 'super admin' || role === 'admin sales';
 
                 if (!isAuthorized) {
                     console.warn(`Admin Layout: Access Denied. User role: "${profile.role}"`);
@@ -137,6 +143,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         checkAdmin();
         return () => { isMounted = false; };
     }, [router]);
+
+    // Filter menu items based on role
+    const MENU_ITEMS = ALL_MENU_ITEMS.filter(item => {
+        if (userRole === 'admin sales') {
+            return ['Dashboard', 'Shops', 'Sales'].includes(item.name);
+        }
+        return true;
+    });
 
     // Close sidebar on path change (mobile)
     useEffect(() => {
