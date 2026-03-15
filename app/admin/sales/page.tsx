@@ -67,17 +67,56 @@ export default function SalesManagement() {
 
     const fetchLeads = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('sales_leads')
-            .select(`
-                *,
-                sales_rep:users!sales_lead_sales_rep_id_fkey(nickname)
-            `)
-            .order('created_at', { ascending: false });
-        
-        if (error) console.error('Error fetching leads:', error);
-        else setLeads(data || []);
-        setLoading(false);
+        console.log('--- FETCH LEADS DIAGNOSTIC START ---');
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            console.log('Current Auth User ID:', user?.id);
+
+            // 1. Table Check
+            const { error: tableError } = await supabase.from('sales_leads').select('id').limit(1);
+            if (tableError) {
+                console.error('Table/RLS Error:', tableError);
+                if (tableError.code === '42P01') {
+                    alert('Database Error: Table "sales_leads" does not exist. Did you run the migration?');
+                } else {
+                    alert(`Database Error: ${tableError.message} (Code: ${tableError.code})`);
+                }
+                setLoading(false);
+                return;
+            }
+
+            // 2. Fetch with join
+            console.log('Attempting fetch with join...');
+            const { data, error } = await supabase
+                .from('sales_leads')
+                .select(`
+                    *,
+                    sales_rep:users(nickname)
+                `)
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('Fetch Join Error:', error);
+                // Fallback: Try without join
+                console.log('Attempting fallback fetch without join...');
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('sales_leads')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (fallbackError) throw fallbackError;
+                setLeads(fallbackData || []);
+            } else {
+                console.log(`Fetched ${data?.length || 0} leads successfully.`);
+                setLeads(data || []);
+            }
+        } catch (err: any) {
+            console.error('Unexpected Fetch Error:', err);
+            alert('Fetch Error: ' + err.message);
+        } finally {
+            setLoading(false);
+            console.log('--- FETCH LEADS DIAGNOSTIC END ---');
+        }
     };
 
     const handleSave = async () => {
@@ -175,90 +214,107 @@ export default function SalesManagement() {
 
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
-            alert('Google Maps API Key not found in environment variables.');
+            alert('Google Maps API Key not found.');
             setLoading(false);
             return;
         }
 
-        // 1. Load Google Maps Script if not exists
         if (typeof window !== 'undefined' && !(window as any).google) {
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
             script.async = true;
-            script.defer = true;
             document.head.appendChild(script);
-            
-            // Wait for script to load
-            await new Promise((resolve) => {
-                script.onload = resolve;
-            });
+            await new Promise((resolve) => script.onload = resolve);
         }
 
         const google = (window as any).google;
         if (!google) {
-            alert('Failed to load Google Maps SDK');
+            alert('Failed to load Google SDK');
             setLoading(false);
             return;
         }
 
-        // 2. Use PlacesService
         try {
-            // Create a dummy div for PlacesService requirement
             const dummyDiv = document.createElement('div');
             const service = new google.maps.places.PlacesService(dummyDiv);
 
-            service.textSearch({ query: googleSearchQuery }, (results: any[], status: any) => {
+            service.textSearch({ query: googleSearchQuery }, async (results: any[], status: any) => {
                 if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                    const formattedResults = results.map(place => {
-                        // Better category mapping
-                        let mappedCategory = 'others';
-                        const types = place.types || [];
-                        if (types.includes('night_club') || types.includes('bar')) mappedCategory = 'CLUB';
-                        else if (types.includes('restaurant') || types.includes('food')) mappedCategory = 'RESTAURANT';
-                        else if (types.includes('spa')) mappedCategory = 'SPA';
-                        else if (types.includes('massage')) mappedCategory = 'Massage';
-                        // Add more mappings if needed
-                        
-                        return {
-                            name: place.name,
-                            address: place.formatted_address,
-                            phone: '', 
-                            category: mappedCategory,
-                            google_place_id: place.place_id,
-                            rating: place.rating,
-                            user_ratings_total: place.user_ratings_total
-                        };
-                    });
-                    setExtractedResults(formattedResults);
+                    // Fetch details for top 10 results to get phone/website/photos
+                    const detailedResults = await Promise.all(
+                        results.slice(0, 10).map(async (place) => {
+                            return new Promise((resolve) => {
+                                service.getDetails({ 
+                                    placeId: place.place_id,
+                                    fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'photos', 'types', 'place_id', 'rating']
+                                }, (details: any, dStatus: any) => {
+                                    if (dStatus === google.maps.places.PlacesServiceStatus.OK && details) {
+                                        // Category mapping
+                                        let cat = 'others';
+                                        const t = details.types || [];
+                                        if (t.includes('night_club') || t.includes('bar')) cat = 'CLUB';
+                                        else if (t.includes('ktv')) cat = 'KTV';
+                                        else if (t.includes('spa')) cat = 'SPA';
+                                        else if (t.includes('massage')) cat = 'Massage';
+                                        else if (t.includes('restaurant')) cat = 'RESTAURANT';
+
+                                        resolve({
+                                            name: details.name,
+                                            address: details.formatted_address,
+                                            phone: details.formatted_phone_number || '',
+                                            website: details.website || '',
+                                            category: cat,
+                                            google_place_id: details.place_id,
+                                            rating: details.rating,
+                                            photo_url: details.photos?.[0]?.getUrl({ maxWidth: 400 }) || null
+                                        });
+                                    } else {
+                                        resolve({
+                                            name: place.name,
+                                            address: place.formatted_address,
+                                            phone: '',
+                                            website: '',
+                                            category: 'others',
+                                            google_place_id: place.place_id,
+                                            rating: place.rating,
+                                            photo_url: null
+                                        });
+                                    }
+                                });
+                            });
+                        })
+                    );
+                    setExtractedResults(detailedResults);
                 } else {
                     alert('Search failed: ' + status);
-                    setExtractedResults([]);
                 }
                 setLoading(false);
             });
         } catch (err: any) {
-            alert('Extraction Error: ' + err.message);
+            alert('Search error: ' + err.message);
             setLoading(false);
         }
     };
 
     const importLead = async (result: any) => {
-        console.log('Attempting to import lead:', result);
+        console.log('Importing Lead:', result.name);
         const { error } = await supabase.from('sales_leads').insert([{
             name: result.name,
             category: result.category,
             address: result.address,
             phone: result.phone || '',
+            website: result.website || '',
             google_place_id: result.google_place_id,
-            status: 'Prospect'
+            status: 'Prospect',
+            metadata: { photo_url: result.photo_url }
         }]);
 
         if (error) {
-            console.error('Import Lead Error:', error);
-            if (error.code === '23505') alert('Lead already exists in database (Place ID duplicate).');
-            else alert('Import Error: ' + error.message + ' (Code: ' + error.code + ')');
+            console.error('Import Error:', error);
+            if (error.code === '23505') alert('This lead is already in your database.');
+            else alert('Import Error: ' + error.message);
         } else {
-            alert('Imported successfully: ' + result.name);
+            alert('Success! Imported ' + result.name);
             fetchLeads();
         }
     };
@@ -356,9 +412,35 @@ export default function SalesManagement() {
                                     {filteredLeads.map((lead) => (
                                         <tr key={lead.id} className="group hover:bg-white/[0.02] transition-colors">
                                             <td className="px-8 py-5">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-white font-black">{lead.name}</span>
-                                                    <span className="text-[10px] text-zinc-500 mt-1 truncate max-w-[200px]">{lead.address || 'No address'}</span>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex-shrink-0 overflow-hidden border border-white/5">
+                                                        {lead.metadata?.photo_url ? (
+                                                            <img src={lead.metadata.photo_url} alt={lead.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-zinc-700 bg-zinc-900">
+                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-sm text-white font-black truncate">{lead.name}</span>
+                                                        <span className="text-[10px] text-zinc-500 mt-1 truncate max-w-[250px]">{lead.address || 'No address'}</span>
+                                                        
+                                                        <div className="flex gap-3 mt-2">
+                                                            {lead.phone && (
+                                                                <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-400">
+                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.88 12.88 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                                                    {lead.phone}
+                                                                </div>
+                                                            )}
+                                                            {lead.website && (
+                                                                <a href={lead.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[9px] font-bold text-blue-400 hover:text-blue-300">
+                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                                                    Website
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-5">
@@ -462,23 +544,51 @@ export default function SalesManagement() {
                     </div>
 
                     {extractedResults.length > 0 && (
-                        <div className="animate-in slide-in-from-bottom-4 duration-500">
-                            <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Extracted Potential Shops</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="animate-in slide-in-from-bottom-4 duration-500 pb-12">
+                            <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-6 text-center">Extracted Potential Shops</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {extractedResults.map((res, i) => (
-                                    <div key={i} className="p-6 bg-zinc-900/40 border border-white/10 rounded-3xl flex items-center justify-between hover:border-pink-500/30 transition-all group">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-sm font-black text-white">{res.name}</span>
-                                            <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">{res.address}</span>
-                                            <div className="flex gap-2 mt-1">
-                                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">{res.category}</span>
+                                    <div key={i} className="p-4 bg-zinc-900/40 border border-white/10 rounded-[2rem] flex items-center gap-4 hover:border-pink-500/30 transition-all group overflow-hidden">
+                                        {/* Photo Thumbnail */}
+                                        <div className="w-20 h-20 rounded-2xl bg-zinc-800 flex-shrink-0 overflow-hidden border border-white/5">
+                                            {res.photo_url ? (
+                                                <img src={res.photo_url} alt={res.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex-1 flex flex-col min-w-0">
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <span className="text-sm font-black text-white truncate">{res.name}</span>
+                                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-500 border border-pink-500/20">{res.category}</span>
+                                            </div>
+                                            <p className="text-[10px] text-zinc-500 truncate mb-2">{res.address}</p>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                {res.phone && (
+                                                    <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-400">
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.88 12.88 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                                        {res.phone}
+                                                    </div>
+                                                )}
+                                                {res.website && (
+                                                    <a href={res.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[9px] font-bold text-blue-400 hover:text-blue-300">
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                                        Website
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
+
                                         <button 
                                             onClick={() => importLead(res)}
-                                            className="px-4 py-2 bg-white/5 hover:bg-pink-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/5 opacity-0 group-hover:opacity-100"
+                                            className="p-3 bg-white/5 hover:bg-pink-600 hover:text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/5"
+                                            title="Import as Lead"
                                         >
-                                            Import
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                         </button>
                                     </div>
                                 ))}
