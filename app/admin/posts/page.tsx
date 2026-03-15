@@ -5,15 +5,10 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
-import { isBunnyStream, getBunnyStreamVideoUrl } from '../../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, isVideo } from '../../../lib/bunny';
 
-const isVideo = (url: string | null) => {
-    if (!url) return false;
-    // Check if it's a direct video link or a Bunny Stream iframe link
-    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
-};
 
-export default function PostManagement() {
+const PostManagement = () => {
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -139,15 +134,6 @@ export default function PostManagement() {
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const isVideo = (url: string) => {
-        if (!url) return false;
-        return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || url.includes('iframe.mediadelivery.net');
-    };
-
-    const isBunnyStream = (url: string) => {
-        return url && url.includes('iframe.mediadelivery.net');
     };
 
     const formatFileSize = (bytes: number) => {

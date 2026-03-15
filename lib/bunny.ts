@@ -67,6 +67,12 @@ export function isBunnyStream(url: string | null): boolean {
     return url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com');
 }
 
+export const isVideo = (url: string | null) => {
+    if (!url) return false;
+    // Check if it's a direct video link or a Bunny Stream iframe link
+    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
+};
+
 /**
  * Transforms a Bunny Stream player URL into a direct video URL (MP4 fallback)
  * Note: Requires "Direct File Access" to be enabled in Bunny Stream Settings.
@@ -84,7 +90,7 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     const videoId = match[2];
     
     // Default to library-specific direct access URL if no pull zone is specified
-    return `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play_720p.mp4`;
+    return `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play.720p.mp4`;
 }
 
 /**
