@@ -6,11 +6,15 @@ import { supabase } from './supabase';
  */
 const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY;
 const BUNNY_STORAGE_ZONE_NAME = process.env.BUNNY_STORAGE_ZONE_NAME;
-const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'storage'; // default to German storage
-const PULL_ZONE = process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE_URL || 'https://dancetgt.b-cdn.net';
+const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || 'storage'; 
 
+// Storage CDN (Global Pull Zone for images)
+const STORAGE_PULL_ZONE = process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE_URL || 'https://dancetgt.b-cdn.net';
+
+// Stream CDN (Specific to the Video Library)
+const STREAM_CDN_HOSTNAME = 'vz-dc7bf078-297.b-cdn.net';
 const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY;
-const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID;
+const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
 
 interface UploadResponse {
     url: string;
@@ -23,7 +27,7 @@ interface UploadResponse {
  * Uploads an image to Bunny Storage
  */
 export async function uploadToBunnyStorage(file: Buffer | File, fileName: string, folder: string = 'images'): Promise<UploadResponse> {
-    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME || !PULL_ZONE || PULL_ZONE.includes('undefined')) {
+    if (!BUNNY_STORAGE_API_KEY || !BUNNY_STORAGE_ZONE_NAME || !STORAGE_PULL_ZONE || STORAGE_PULL_ZONE.includes('undefined')) {
         return { 
             success: false, 
             url: '', 
@@ -51,7 +55,7 @@ export async function uploadToBunnyStorage(file: Buffer | File, fileName: string
 
         return {
             success: true,
-            url: `${PULL_ZONE}/${path}`,
+            url: `${STORAGE_PULL_ZONE}/${path}`,
         };
     } catch (error: any) {
         console.error('Error uploading to Bunny Storage:', error);
@@ -71,10 +75,10 @@ export function isBunnyStream(url: string | null): boolean {
     // 2. Check for bare GUID
     if (/^[a-z0-9-]{36}$/i.test(url)) return true;
 
-    // 3. Check for Bunny CDN domain + GUID pattern (most robust for custom pull zones)
+    // 3. Check for Bunny Stream CDN domain + GUID pattern (most robust for custom pull zones)
     // This allows identifying streams even if the library ID is missing from the path
     const guidPattern = /[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/i;
-    return url.includes('b-cdn.net') && guidPattern.test(url);
+    return (url.includes(STREAM_CDN_HOSTNAME) || url.includes('b-cdn.net')) && guidPattern.test(url);
 }
 
 /**
@@ -146,12 +150,12 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     if (!videoId) return url;
     
     if (!libraryId) {
-        libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+        libraryId = BUNNY_STREAM_LIBRARY_ID;
     }
 
-    // Use the official CDN hostname provided by the user
+    // Use the official Stream CDN hostname
     // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/play_720p.mp4
-    return `https://dancetgt.b-cdn.net/${libraryId}/${videoId}/play_720p.mp4`;
+    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/play_720p.mp4`;
 }
 
 /**
@@ -186,14 +190,14 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     }
     
     if (!libraryId) {
-        libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+        libraryId = BUNNY_STREAM_LIBRARY_ID;
     }
 
     if (!videoId) return url;
     
-    // Always use the official CDN hostname provided by the user
+    // Use the official Stream CDN hostname for thumbnails
     // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/thumbnail.jpg
-    return `https://dancetgt.b-cdn.net/${libraryId}/${videoId}/thumbnail.jpg`;
+    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/thumbnail.jpg`;
 }
 
 /**
@@ -204,7 +208,7 @@ export function getBunnyStreamEmbedUrl(url: string | null, autoplay: boolean = f
     if (!url) return null;
     
     let videoId = '';
-    let libraryId = (process.env.BUNNY_STREAM_LIBRARY_ID || '617122').toString();
+    let libraryId = BUNNY_STREAM_LIBRARY_ID;
 
     // 1. Extract IDs from various formats
     // Standard player: https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
@@ -245,8 +249,9 @@ export function getBunnyStreamEmbedUrl(url: string | null, autoplay: boolean = f
  * Note: This involves creating a video entry and then uploading the content.
  */
 export async function uploadToBunnyStream(file: Buffer | File, title: string): Promise<UploadResponse> {
-    if (!BUNNY_STREAM_API_KEY || !BUNNY_STREAM_LIBRARY_ID) {
-        return { success: false, url: '', error: 'Bunny.net Stream configuration missing.' };
+    if (!BUNNY_STREAM_API_KEY || BUNNY_STREAM_LIBRARY_ID === '617122' && !process.env.BUNNY_STREAM_LIBRARY_ID) {
+        // Fallback check: if we are using the hardcoded ID, we still need the API key
+        if (!BUNNY_STREAM_API_KEY) return { success: false, url: '', error: 'Bunny.net Stream API key missing.' };
     }
 
     try {
@@ -281,7 +286,7 @@ export async function uploadToBunnyStream(file: Buffer | File, title: string): P
 
         return {
             success: true,
-            url: `https://iframe.mediadelivery.net/play/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`, // Standard player URL
+            url: `https://player.mediadelivery.net/embed/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`, // Standard player URL
             mediaId: videoId,
         };
     } catch (error: any) {
