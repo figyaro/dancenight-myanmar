@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../../lib/supabase';
+import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo } from '../../lib/bunny';
 
 interface Post {
     id: number;
@@ -178,10 +179,22 @@ export default function Discover() {
                             <div
                                 key={post.id}
                                 onClick={() => router.push(`/home?postId=${post.id}`)}
-                                className="relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-pointer active:scale-95 transition-transform bg-zinc-900"
+                                className="relative aspect-[9/16] rounded-2xl overflow-hidden group cursor-pointer active:scale-95 transition-transform bg-zinc-900"
                             >
+                                <div className="absolute inset-0 z-20 border border-white/10 rounded-2xl pointer-events-none" />
                                 {post.main_image_url ? (
-                                    post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                                    isBunnyStream(post.main_image_url) ? (
+                                        <div className="relative w-full h-full">
+                                            <img
+                                                src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''}
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                alt={post.name}
+                                            />
+                                            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                            </div>
+                                        </div>
+                                    ) : isVideo(post.main_image_url) ? (
                                         <div className="relative w-full h-full video-container">
                                             <video 
                                                 src={post.main_image_url} 

@@ -15,12 +15,12 @@ function getMapEmbedUrl(url: string, shopName: string, area: string) {
     }
     const latLngMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (latLngMatch) {
-        return `https://maps.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=ja&z=15&output=embed`;
+        return `https://maps.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=en&z=15&output=embed`;
     }
     // Check if the address field itself is a URL (contains http)
     if (url.includes('http')) {
         const query = encodeURIComponent(`${shopName} ${area}`);
-        return `https://maps.google.com/maps?q=${query}&hl=ja&output=embed`;
+        return `https://maps.google.com/maps?q=${query}&hl=en&output=embed`;
     }
     return null;
 }

@@ -269,6 +269,24 @@ export default function Profile() {
 
                     {userPosts.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1">
+                            {/* Create New Post Slot */}
+                            <Link 
+                                href="/post"
+                                className="aspect-[9/16] liquid-glass !rounded-xl !border-[0.5px] border-white/20 flex flex-col items-center justify-center group cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
+                            >
+                                <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-none rounded-[inherit]" />
+                                <div className="relative z-10 flex flex-col items-center">
+                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-pink-500">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                    </div>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 group-hover:text-pink-500 transition-colors">Post Now</span>
+                                </div>
+                                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+
                             {userPosts.map((post) => {
                                 const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
                                 const isPlaying = playingVideoId === post.id;
