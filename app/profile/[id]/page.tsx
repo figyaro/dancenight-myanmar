@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabase';
 import { getEffectiveUserId } from '../../../lib/auth-util';
 import { t } from '../../../lib/i18n';
 import LoadingScreen from '../../components/LoadingScreen';
+import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl } from '../../../lib/bunny';
 
 export default function PublicProfile() {
     const { id } = useParams();
@@ -18,6 +19,8 @@ export default function PublicProfile() {
     const [actionLoading, setActionLoading] = useState(false);
     const [viewerLanguage, setViewerLanguage] = useState<string | null>('英語');
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [userPosts, setUserPosts] = useState<any[]>([]);
+    const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -58,9 +61,9 @@ export default function PublicProfile() {
                 if (error) throw error;
                 if (data) setProfile(data);
 
-                // Fetch Stats
+                // Fetch Stats and Posts
                 const [postsRes, followersRes, followingRes, likesRes] = await Promise.all([
-                    supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', id),
+                    supabase.from('posts').select('*').eq('user_id', id).order('created_at', { ascending: false }),
                     supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', id),
                     supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('follower_id', id),
                     supabase.from('likes').select('post_id', { count: 'exact', head: true }).in('post_id',
@@ -68,8 +71,9 @@ export default function PublicProfile() {
                     )
                 ]);
 
+                setUserPosts(postsRes.data || []);
                 setStats({
-                    posts: postsRes.count || 0,
+                    posts: postsRes.data?.length || 0,
                     followers: followersRes.count || 0,
                     following: followingRes.count || 0,
                     likes: likesRes.count || 0
@@ -362,6 +366,101 @@ export default function PublicProfile() {
                     </div>
                     {/* Spacer to prevent cutoff */}
                     <div className="flex-shrink-0 w-8" />
+                </div>
+
+                {/* Media Grid Section (User Posts) */}
+                <div className="mt-8">
+                    <div className="flex items-center justify-between mb-6 px-1">
+                        <h3 className="text-xs font-black tracking-[0.3em] text-zinc-500 uppercase">Creations</h3>
+                        <span className="text-[10px] font-black text-pink-500 uppercase tracking-widest">{userPosts.length} POSTS</span>
+                    </div>
+
+                    {userPosts.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-1">
+                            {userPosts.map((post) => {
+                                const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
+                                const isPlaying = playingVideoId === post.id;
+                                
+                                return (
+                                    <div 
+                                        key={post.id} 
+                                        onClick={() => {
+                                            if (isPostVideo) {
+                                                if (isPlaying) {
+                                                    router.push(`/home?postId=${post.id}`);
+                                                } else {
+                                                    setPlayingVideoId(post.id);
+                                                }
+                                            } else {
+                                                router.push(`/home?postId=${post.id}`);
+                                            }
+                                        }}
+                                        className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
+                                    >
+                                        <div className="absolute inset-0 z-20 pointer-events-auto" /> {/* Click interceptor overlay */}
+                                        {post.main_image_url ? (
+                                            isBunnyStream(post.main_image_url) ? (
+                                                isPlaying ? (
+                                                    <iframe
+                                                        src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
+                                                        loading="lazy"
+                                                        style={{ border: 0, width: '100%', height: '100%' }}
+                                                        className="w-full h-full object-cover pointer-events-none" 
+                                                        allow="accelerometer; gyroscope; autoplay; encrypted-media;"
+                                                    ></iframe>
+                                                ) : (
+                                                    <div className="w-full h-full relative pointer-events-none">
+                                                        <iframe
+                                                            src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
+                                                            loading="lazy"
+                                                            style={{ border: 0, width: '100%', height: '100%' }}
+                                                            className="w-full h-full object-cover scale-105 pointer-events-none" 
+                                                            allow="accelerometer; gyroscope; encrypted-media; picture-in-picture;"
+                                                        ></iframe>
+                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ) : isVideo(post.main_image_url) ? (
+                                                <div className="w-full h-full relative">
+                                                    <video 
+                                                        src={post.main_image_url} 
+                                                        className="w-full h-full object-cover"
+                                                        muted
+                                                        playsInline
+                                                        autoPlay={isPlaying}
+                                                        onEnded={() => setPlayingVideoId(null)}
+                                                    />
+                                                    {!isPlaying && (
+                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <img 
+                                                    src={post.main_image_url} 
+                                                    className="w-full h-full object-cover" 
+                                                    alt="" 
+                                                />
+                                            )
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                                                <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="bg-zinc-900/30 border border-dashed border-white/5 rounded-3xl py-12 text-center">
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">🪩</div>
+                            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                        </div>
+                    )}
                 </div>
             </main>
             <BottomNav />

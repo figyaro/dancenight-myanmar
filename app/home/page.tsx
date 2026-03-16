@@ -433,15 +433,22 @@ function HomeFeedContent() {
                     }
                     if (iframe && iframe.contentWindow) {
                         try {
-                            if (isPlaying) iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
-                            else iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
+                            const win = iframe.contentWindow;
+                            // Send multiple times to ensure internal player script catches it if booting up
+                            const sendPlay = () => {
+                                if (isPlaying) win.postMessage(JSON.stringify({ method: 'play' }), '*');
+                                if (!hasInteracted || isMuted) {
+                                    win.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                                } else {
+                                    win.postMessage(JSON.stringify({ method: 'unmute' }), '*');
+                                    win.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
+                                }
+                            };
                             
-                            if (!hasInteracted || isMuted) {
-                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'mute' }), '*');
-                            } else {
-                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
-                                iframe.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
-                            }
+                            sendPlay();
+                            setTimeout(sendPlay, 500);
+                            setTimeout(sendPlay, 1000);
+                            setTimeout(sendPlay, 2000);
                         } catch (e) {
                             console.warn("Iframe interaction error:", e);
                         }
@@ -562,10 +569,17 @@ function HomeFeedContent() {
                                             allowFullScreen
                                             onLoad={(e) => {
                                                 if (activePostId === post.id && isPlaying) {
-                                                    e.currentTarget.contentWindow?.postMessage(JSON.stringify({ method: 'play' }), '*');
-                                                    if (!hasInteracted || isMuted) {
-                                                        e.currentTarget.contentWindow?.postMessage(JSON.stringify({ method: 'mute' }), '*');
-                                                    }
+                                                    const win = e.currentTarget.contentWindow;
+                                                    const sendPlay = () => {
+                                                        win?.postMessage(JSON.stringify({ method: 'play' }), '*');
+                                                        if (!hasInteracted || isMuted) {
+                                                            win?.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                                                        }
+                                                    };
+                                                    sendPlay();
+                                                    setTimeout(sendPlay, 500);
+                                                    setTimeout(sendPlay, 1000);
+                                                    setTimeout(sendPlay, 2000);
                                                 }
                                             }}
                                         ></iframe>
