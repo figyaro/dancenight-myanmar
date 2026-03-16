@@ -72,7 +72,7 @@ export default function PublicProfile() {
                 setUserPosts(postsRes.data || []);
                 if (statsData.data) {
                     setStats({
-                        posts: statsData.data.posts_count || 0,
+                        posts: statsData.data.post_count || 0,
                         followers: statsData.data.followers_count || 0,
                         following: statsData.data.following_count || 0,
                         likes: statsData.data.likes_count || 0,

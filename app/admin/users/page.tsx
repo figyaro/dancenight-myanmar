@@ -109,7 +109,12 @@ export default function UserManagement() {
             .order('created_at', { ascending: false })
             .limit(9);
 
-        setSelectedUser({ ...user, stats, recentPosts: postsRes || [] });
+        // Merge high-fidelity stats into selectedUser
+        setSelectedUser({ 
+            ...user, 
+            ...stats, // Merges post_count, followers_count, etc. from RPC
+            recentPosts: postsRes || [] 
+        });
         setIsOperationsOpen(null);
     };
 
