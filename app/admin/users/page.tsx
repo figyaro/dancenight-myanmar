@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
+import { isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamVideoUrl } from '../../../lib/bunny';
 
 export default function UserManagement() {
     const [users, setUsers] = useState<any[]>([]);
@@ -12,6 +13,7 @@ export default function UserManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [isOperationsOpen, setIsOperationsOpen] = useState<string | null>(null);
+    const [previewMedia, setPreviewMedia] = useState<any>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -110,7 +112,16 @@ export default function UserManagement() {
 
     const handleInfoClick = async (user: any) => {
         const stats = await fetchUserStats(user.id);
-        setSelectedUser({ ...user, stats });
+        
+        // Fetch latest 9 posts
+        const { data: postsRes } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(9);
+
+        setSelectedUser({ ...user, stats, recentPosts: postsRes || [] });
         setIsOperationsOpen(null);
     };
 
@@ -238,10 +249,14 @@ export default function UserManagement() {
                                         <div className="relative flex justify-end">
                                             <button 
                                                 onClick={() => setIsOperationsOpen(isOperationsOpen === user.id ? null : user.id)}
-                                                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                                className="w-10 h-10 flex items-center justify-center bg-zinc-800/50 hover:bg-zinc-700/50 border border-white/10 rounded-xl transition-all group"
+                                                title="Operations"
                                             >
-                                                Operations
-                                                <svg className={`transition-transform duration-300 ${isOperationsOpen === user.id ? 'rotate-180' : ''}`} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M6 9l6 6 6-6"/></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 group-hover:text-white transition-colors">
+                                                    <circle cx="12" cy="12" r="1" />
+                                                    <circle cx="19" cy="12" r="1" />
+                                                    <circle cx="5" cy="12" r="1" />
+                                                </svg>
                                             </button>
 
                                             {isOperationsOpen === user.id && (
@@ -250,41 +265,53 @@ export default function UserManagement() {
                                                         className="fixed inset-0 z-40"
                                                         onClick={() => setIsOperationsOpen(null)}
                                                     />
-                                                    <div className="absolute right-0 bottom-full mb-2 w-48 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-50 py-2 animate-in fade-in zoom-in duration-200">
+                                                    <div className="absolute right-0 top-full mt-2 w-52 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
                                                         <button 
                                                             onClick={() => handleInfoClick(user)}
-                                                            className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-3"
+                                                            className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-3 group"
                                                         >
-                                                            <span className="text-sm">ℹ️</span> Info
+                                                            <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center group-hover:bg-pink-500/20 group-hover:text-pink-400 transition-all">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                                            </div>
+                                                            Details
                                                         </button>
                                                         {currentUser?.role === 'super admin' && (
                                                             <>
                                                                 <button 
                                                                     onClick={() => window.open(`/home?impersonate=${user.id}`, '_blank')}
-                                                                    className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-600/10 transition-all flex items-center gap-3"
+                                                                    className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-blue-400 hover:bg-blue-600/10 transition-all flex items-center gap-3 group"
                                                                 >
-                                                                    <span className="text-sm">👤</span> Login
+                                                                    <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center group-hover:bg-blue-500/20 transition-all">
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                                                    </div>
+                                                                    Login
                                                                 </button>
                                                                 <button 
                                                                     onClick={() => forcePasswordChange(user.id)}
-                                                                    className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-600/10 transition-all flex items-center gap-3"
+                                                                    className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-red-400 hover:bg-red-600/10 transition-all flex items-center gap-3 group"
                                                                 >
-                                                                    <span className="text-sm">🔑</span> Reset Key
+                                                                    <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center group-hover:bg-red-500/20 transition-all">
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                                                    </div>
+                                                                    Reset Key
                                                                 </button>
                                                             </>
                                                         )}
                                                         <button 
                                                             onClick={() => sendResetEmail(user.email)}
-                                                            className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-3"
+                                                            className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-3 group"
                                                         >
-                                                            <span className="text-sm">✉️</span> Send Reset
+                                                            <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center group-hover:bg-white/10 transition-all">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                                            </div>
+                                                            Send Reset
                                                         </button>
-                                                        <div className="px-4 py-2.5 border-t border-white/5">
+                                                        <div className="mt-2 px-4 py-2.5 border-t border-white/5 bg-black/20">
                                                             <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest block mb-2">Change Role</span>
                                                             <select 
                                                                 value={user.role || 'user'}
                                                                 onChange={(e) => updateRole(user.id, e.target.value)}
-                                                                className="w-full bg-zinc-800 border border-white/10 rounded-lg py-1.5 px-3 text-[9px] font-black uppercase tracking-widest outline-none focus:border-pink-500/50 transition-all cursor-pointer"
+                                                                className="w-full bg-zinc-900 border border-white/10 rounded-lg py-1.5 px-3 text-[9px] font-black uppercase tracking-widest outline-none focus:border-pink-500/50 transition-all cursor-pointer appearance-none"
                                                             >
                                                                 {ROLES.map(r => (
                                                                     <option key={r} value={r}>{r.toUpperCase()}</option>
@@ -385,15 +412,82 @@ export default function UserManagement() {
                                 </div>
                             </div>
 
+                            {/* Latest Work Grid */}
+                            {selectedUser.recentPosts && selectedUser.recentPosts.length > 0 && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Latest Work</span>
+                                        <span className="text-[8px] font-black text-pink-500/50 uppercase tracking-widest">{selectedUser.recentPosts.length} Posts</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {selectedUser.recentPosts.map((post: any) => (
+                                            <button 
+                                                key={post.id}
+                                                onClick={() => setPreviewMedia(post)}
+                                                className="aspect-[9/16] bg-zinc-950 rounded-xl overflow-hidden border border-white/5 relative group"
+                                            >
+                                                <img 
+                                                    src={isVideo(post.media_url) ? getBunnyStreamThumbnailUrl(post.media_url) : post.media_url} 
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                    alt=""
+                                                />
+                                                {isVideo(post.media_url) && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className="opacity-80 group-hover:scale-110 transition-all"><path d="M8 5v14l11-7z"/></svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* System IDs */}
                             <div className="p-4 bg-black/40 border border-white/5 rounded-2xl">
-                                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest block mb-2">Internal Identity</span>
+                                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Internal Identity</span>
                                 <p className="text-[9px] font-mono text-zinc-500 break-all">{selectedUser.id}</p>
                             </div>
                         </div>
                     </div>
                 )}
             </SlideOver>
+
+            {/* Premium Media Preview Overlay */}
+            {previewMedia && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 bg-black/95 backdrop-blur-3xl"
+                        onClick={() => setPreviewMedia(null)}
+                    />
+                    <div className="relative w-full max-w-lg aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+                        {isVideo(previewMedia.media_url) ? (
+                            <video 
+                                src={getBunnyStreamVideoUrl(previewMedia.media_url) || undefined}
+                                className="w-full h-full object-contain"
+                                autoPlay
+                                loop
+                                controls
+                                webkit-playsinline="true"
+                                playsInline
+                            />
+                        ) : (
+                            <img 
+                                src={previewMedia.media_url} 
+                                className="w-full h-full object-contain" 
+                                alt=""
+                            />
+                        )}
+                        <button 
+                            onClick={() => setPreviewMedia(null)}
+                            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center transition-all group border border-white/10"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:rotate-90 transition-transform">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
