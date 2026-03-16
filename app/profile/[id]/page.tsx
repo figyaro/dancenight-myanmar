@@ -93,66 +93,16 @@ export default function PublicProfile() {
     const handleFollow = async () => {
         if (!currentUser || !id || actionLoading) return;
 
-        // Prevent self-following
         if (currentUser.id === id) {
-            alert('自分自身をフォローすることはできません。');
-            return;
-        }
-
-        // Basic UUID format check
-        const isIdUuid = typeof id === 'string' && (id.length === 36 || id.length === 32);
-        if (!isIdUuid) {
-            console.error('DEBUG: Invalid ID format. Expected UUID, got:', id);
-            alert(`エラー: 無効なID形式です (${id})。`);
+            alert(t('cannot_follow_self', viewerLanguage));
             return;
         }
 
         setActionLoading(true);
 
         try {
-            console.log('--- FOLLOW ACTION DIAGNOSTICS START ---');
-            console.log('Follower (You):', currentUser.id);
-            console.log('Following (Target):', id);
-
-            // 1. Explicitly check if both users exist in public.users
-            const { data: followerProfile, error: fError } = await supabase.from('users').select('id, nickname').eq('id', currentUser.id).maybeSingle();
-            const { data: targetProfile, error: tError } = await supabase.from('users').select('id, nickname').eq('id', id).maybeSingle();
-
-            if (fError) console.error('DEBUG: Follower Check Error:', fError);
-            if (tError) console.error('DEBUG: Target Check Error:', tError);
-
-            console.log('Follower profile in DB:', followerProfile);
-            console.log('Target profile in DB:', targetProfile);
-
-            if (!targetProfile) {
-                console.error('DEBUG: Target user record missing');
-                alert('フォロー対象のプロフィールが見つかりません。');
-                setActionLoading(false);
-                return;
-            }
-
-            // 2. If WE are missing, auto-create a basic profile to satisfy FK
-            if (!followerProfile) {
-                console.log('DEBUG: Auto-creating your profile...');
-                const { error: createError } = await supabase.from('users').insert([{
-                    id: currentUser.id,
-                    nickname: currentUser.email?.split('@')[0] || 'Dancer',
-                    language: '日本語',
-                    created_at: new Date().toISOString()
-                }]);
-
-                if (createError) {
-                    console.error('DEBUG: Profile creation failed:', createError);
-                    alert(`プロフィール自動作成エラー: ${createError.message}`);
-                    setActionLoading(false);
-                    return;
-                }
-                console.log('DEBUG: Profile created successfully');
-            }
-
             if (isFollowing) {
                 // Unfollow
-                console.log('DEBUG: Attempting unfollow (DELETE)...');
                 const { error: unfollowError } = await supabase
                     .from('follows')
                     .delete()
@@ -160,35 +110,37 @@ export default function PublicProfile() {
                     .eq('following_id', id);
 
                 if (unfollowError) throw unfollowError;
-
                 setIsFollowing(false);
-                setStats(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-                console.log('DEBUG: Unfollow success');
             } else {
                 // Follow
-                console.log('DEBUG: Attempting follow (INSERT)...');
                 const { error: followError } = await supabase
                     .from('follows')
                     .insert([{ follower_id: currentUser.id, following_id: id }]);
 
-                if (followError) {
-                    if (followError.code === '23505') {
-                        console.warn('DEBUG: Already following (Conflict)');
-                        setIsFollowing(true);
-                    } else {
-                        throw followError;
-                    }
-                } else {
-                    setIsFollowing(true);
-                    setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
-                    console.log('DEBUG: Follow success');
-                }
+                if (followError && followError.code !== '23505') throw followError;
+                setIsFollowing(true);
             }
-            console.log('--- FOLLOW ACTION DIAGNOSTICS END ---');
+
+            // Refresh stats from the source of truth
+            const { data: statsData, error: statsError } = await supabase.rpc('get_user_comprehensive_stats', { p_user_id: id });
+            if (!statsError && statsData) {
+                setStats({
+                    posts: statsData.posts_count || 0,
+                    followers: statsData.followers_count || 0,
+                    following: statsData.following_count || 0,
+                    likes: statsData.likes_count || 0,
+                    impressions: statsData.impressions_count || 0
+                });
+            } else {
+                // Fallback optimistic update if RPC fails
+                setStats(prev => ({ 
+                    ...prev, 
+                    followers: isFollowing ? Math.max(0, prev.followers - 1) : prev.followers + 1 
+                }));
+            }
         } catch (err: any) {
-            console.error('Detailed Follow Error Object:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
-            const errorMsg = err.message || err.error_description || (typeof err === 'string' ? err : '不明なエラー');
-            alert(`フォロー処理エラー: ${errorMsg}\n詳細をブラウザのコンソールで確認してください。`);
+            console.error('Follow operation failed:', err);
+            alert(`Error: ${err.message || 'Operation failed'}`);
         } finally {
             setActionLoading(false);
         }

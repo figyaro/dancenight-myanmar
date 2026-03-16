@@ -41,6 +41,7 @@ export const translations = {
         'reserve_now': 'Book Online',
         'shop_posts': 'Recent Posts',
         'description': 'Description',
+        'cannot_follow_self': 'You cannot follow yourself.',
     },
     'ミャンマー語': {
         // Unified to English
@@ -83,6 +84,7 @@ export const translations = {
         'reserve_now': 'Book Online',
         'shop_posts': 'Recent Posts',
         'description': 'Description',
+        'cannot_follow_self': 'You cannot follow yourself.',
     },
     '日本語': {
         // Unified to English
@@ -125,6 +127,7 @@ export const translations = {
         'reserve_now': 'Book Online',
         'shop_posts': 'Recent Posts',
         'description': 'Description',
+        'cannot_follow_self': '自分自身をフォローすることはできません。',
     }
 };
 
@@ -132,4 +135,3 @@ export function t(key: keyof typeof translations['英語'], lang: string | null 
     // Force English regardless of current lang
     return translations['英語'][key] || key;
 }
-

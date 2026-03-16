@@ -182,39 +182,41 @@ function HomeFeedContent() {
                     setPosts(mappedResult);
                 }
 
-                if (data || posts.length > 0) {
-                    // Fetch real-time likes
-                    const { data: likesData } = await supabase.from('likes').select('post_id');
+                if (mappedResult.length > 0 || fallbackResult.length > 0) {
+                    const activePosts = mappedResult.length > 0 ? mappedResult : fallbackResult;
+                    const postIds = activePosts.map(p => p.id);
+
+                    // Fetch likes only for the posts we have
+                    const { data: likesData } = await supabase.from('likes').select('post_id').in('post_id', postIds);
                     const counts: Record<string, number> = {};
                     likesData?.forEach(l => counts[l.post_id] = (counts[l.post_id] || 0) + 1);
                     setLikes(counts);
 
                     if (effectiveUserId) {
-                        const { data: userLikesData } = await supabase.from('likes').select('post_id').eq('user_id', effectiveUserId);
+                        const { data: userLikesData } = await supabase.from('likes').select('post_id').eq('user_id', effectiveUserId).in('post_id', postIds);
                         if (userLikesData) setUserLikes(userLikesData.map(l => l.post_id));
 
-                        // Fetch following list for the effective user
                         const { data: followsData } = await supabase.from('follows').select('following_id').eq('follower_id', effectiveUserId);
                         if (followsData) setFollowingIds(followsData.map(f => f.following_id));
                     }
+                }
 
-                    // Fetch comment counts
-                    try {
-                        const { data: commentsData } = await supabase.from('comments').select('post_id');
-                        const cCounts: Record<string, number> = {};
-                        commentsData?.forEach(c => cCounts[c.post_id] = (cCounts[c.post_id] || 0) + 1);
-                        setCommentCounts(cCounts);
-                    } catch (cErr) {
-                        console.warn('Comments table might not exist yet', cErr);
-                    }
+                // Fetch comment counts
+                try {
+                    const { data: commentsData } = await supabase.from('comments').select('post_id');
+                    const cCounts: Record<string, number> = {};
+                    commentsData?.forEach(c => cCounts[c.post_id] = (cCounts[c.post_id] || 0) + 1);
+                    setCommentCounts(cCounts);
+                } catch (cErr) {
+                    console.warn('Comments table might not exist yet', cErr);
+                }
 
-                    const initialPosts = mappedResult.length > 0 ? mappedResult : (fallbackResult.length > 0 ? fallbackResult : posts);
-                    if (initialPosts.length > 0) {
-                        const firstPostId = initialPosts[0].id;
-                        setActivePostId(firstPostId);
-                        // Pre-calculate visibility for the first post to avoid delay
-                        setVisibilityRatios(prev => ({ ...prev, [firstPostId]: 1.0 }));
-                    }
+                const initialPosts = mappedResult.length > 0 ? mappedResult : (fallbackResult.length > 0 ? fallbackResult : posts);
+                if (initialPosts.length > 0) {
+                    const firstPostId = initialPosts[0].id;
+                    setActivePostId(firstPostId);
+                    // Pre-calculate visibility for the first post to avoid delay
+                    setVisibilityRatios(prev => ({ ...prev, [firstPostId]: 1.0 }));
                 }
             } catch (err) {
                 console.error("エラー: データの取得に失敗しました", err);
@@ -461,11 +463,14 @@ function HomeFeedContent() {
         const iframe = container?.querySelector('iframe');
 
         if (video) {
+            video.muted = false;
             video.play().catch(e => console.warn("Force play failed:", e));
         }
         if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+            iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
             iframe.contentWindow.postMessage('play', '*');
+            iframe.contentWindow.postMessage('unmute', '*');
         }
     };
 
@@ -708,15 +713,25 @@ function HomeFeedContent() {
                                     <video 
                                         className="w-full h-full object-cover"
                                         playsInline
-                                        // @ts-ignore
-                                        webkit-playsinline="true"
-                                        muted
-                                        loop
-                                        autoPlay
+                                        muted={true}
+                                        loop={true}
+                                        autoPlay={true}
                                         preload="auto"
                                     >
                                         <source src={post.main_image_url} type={post.main_image_url.toLowerCase().endsWith('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'} />
                                     </video>
+                                    
+                                    {/* Mobile Unmute Prompt */}
+                                    {!hasInteracted && activePostId === post.id && (
+                                        <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-black/20 pointer-events-none">
+                                            <div className="bg-black/60 backdrop-blur-xl border border-white/20 px-6 py-4 rounded-full flex items-center gap-3 animate-bounce">
+                                                <div className="w-10 h-10 rounded-full bg-pink-600 flex items-center justify-center">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="white" strokeWidth="2" fill="none"/></svg>
+                                                </div>
+                                                <span className="text-white font-black text-xs tracking-widest uppercase">Tap to unmute</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
