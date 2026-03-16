@@ -108,10 +108,12 @@ function ChatContent() {
 
         fetchConversations();
 
-        // Real-time subscription placeholder
+        // Real-time subscription for messages to ensure list updates promptly
         const channel = supabase
-            .channel('public:conversations')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchConversations)
+            .channel('chat_list_updates')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+                fetchConversations();
+            })
             .subscribe();
 
         return () => {
