@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
+import LeftSlideOver from '../components/LeftSlideOver';
 import { isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamVideoUrl } from '../../../lib/bunny';
 
 export default function UserManagement() {
@@ -427,11 +428,11 @@ export default function UserManagement() {
                                                 className="aspect-[9/16] bg-zinc-950 rounded-xl overflow-hidden border border-white/5 relative group"
                                             >
                                                 <img 
-                                                    src={isVideo(post.media_url) ? getBunnyStreamThumbnailUrl(post.media_url) : post.media_url} 
+                                                    src={isVideo(post.main_image_url) ? getBunnyStreamThumbnailUrl(post.main_image_url) : post.main_image_url} 
                                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                     alt=""
                                                 />
-                                                {isVideo(post.media_url) && (
+                                                {isVideo(post.main_image_url) && (
                                                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className="opacity-80 group-hover:scale-110 transition-all"><path d="M8 5v14l11-7z"/></svg>
                                                     </div>
@@ -452,17 +453,17 @@ export default function UserManagement() {
                 )}
             </SlideOver>
 
-            {/* Premium Media Preview Overlay */}
-            {previewMedia && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div 
-                        className="absolute inset-0 bg-black/95 backdrop-blur-3xl"
-                        onClick={() => setPreviewMedia(null)}
-                    />
-                    <div className="relative w-full max-w-lg aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-                        {isVideo(previewMedia.media_url) ? (
+            {/* Left Sliding Media Preview */}
+            <LeftSlideOver
+                isOpen={!!previewMedia}
+                onClose={() => setPreviewMedia(null)}
+                title="MEDIA CONTENT"
+            >
+                {previewMedia && (
+                    <div className="w-full aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl relative">
+                        {isVideo(previewMedia.main_image_url) ? (
                             <video 
-                                src={getBunnyStreamVideoUrl(previewMedia.media_url) || undefined}
+                                src={getBunnyStreamVideoUrl(previewMedia.main_image_url) || undefined}
                                 className="w-full h-full object-contain"
                                 autoPlay
                                 loop
@@ -472,22 +473,14 @@ export default function UserManagement() {
                             />
                         ) : (
                             <img 
-                                src={previewMedia.media_url} 
+                                src={previewMedia.main_image_url} 
                                 className="w-full h-full object-contain" 
                                 alt=""
                             />
                         )}
-                        <button 
-                            onClick={() => setPreviewMedia(null)}
-                            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center transition-all group border border-white/10"
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:rotate-90 transition-transform">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
                     </div>
-                </div>
-            )}
+                )}
+            </LeftSlideOver>
         </div>
     );
 }
