@@ -409,14 +409,12 @@ export default function PublicProfile() {
                                                         allow="accelerometer; gyroscope; autoplay; encrypted-media;"
                                                     ></iframe>
                                                 ) : (
-                                                    <div className="w-full h-full relative pointer-events-none">
-                                                        <iframe
-                                                            src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
-                                                            loading="lazy"
-                                                            style={{ border: 0, width: '100%', height: '100%' }}
-                                                            className="w-full h-full object-cover scale-105 pointer-events-none" 
-                                                            allow="accelerometer; gyroscope; encrypted-media; picture-in-picture;"
-                                                        ></iframe>
+                                                    <div className="w-full h-full relative">
+                                                        <img 
+                                                            src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
+                                                            className="w-full h-full object-cover" 
+                                                            alt="" 
+                                                        />
                                                         <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
                                                             <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                                                         </div>

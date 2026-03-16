@@ -476,6 +476,10 @@ function HomeFeedContent() {
         const target = e.target as HTMLElement;
         if (target.closest('button') || target.closest('a')) return;
 
+        const currentPost = posts.find(p => p.id === activePostId);
+        const isPostVideo = currentPost && currentPost.main_image_url && (isBunnyStream(currentPost.main_image_url) || currentPost.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/));
+        if (!isPostVideo) return; // Ignore taps on images
+
         if (!hasInteracted) setHasInteracted(true);
         
         const newState = !isPlaying;
@@ -564,7 +568,7 @@ function HomeFeedContent() {
                                             src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
                                             loading="lazy"
                                             style={{ border: 0, width: '100%', height: '100%' }}
-                                            className="w-full h-full object-cover" 
+                                            className="w-full h-full object-cover pointer-events-none" 
                                             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                                             allowFullScreen
                                             onLoad={(e) => {

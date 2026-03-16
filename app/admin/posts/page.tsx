@@ -175,15 +175,11 @@ export default function PostManagement() {
                         <div className="absolute inset-0 w-full h-full">
                             {post.main_image_url ? (
                                 isBunnyStream(post.main_image_url) ? (
-                                    <div className="absolute inset-0 w-full h-full pointer-events-none">
-                                        <iframe
-                                            src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
-                                            loading="lazy"
-                                            style={{ border: 0, width: '100%', height: '100%' }}
-                                            className="w-full h-full object-cover scale-105" 
-                                            allow="accelerometer; gyroscope; encrypted-media; picture-in-picture;"
-                                        ></iframe>
-                                    </div>
+                                    <img 
+                                        src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
+                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                        alt="Video Thumbnail" 
+                                    />
                                 ) : isVideo(post.main_image_url) ? (
                                     <video 
                                         src={`${post.main_image_url}#t=0.1`}

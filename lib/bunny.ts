@@ -152,14 +152,21 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     
     // 1. Extract video ID
     let videoId = '';
+    let libraryId = '';
     const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
     const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    const embedMatch = url.match(/\/embed\/(\d+)\/([a-z0-9-]+)/i);
     const idOnlyMatch = url.match(/^([a-z0-9-]{36})$/i);
 
     if (playerMatch) {
+        libraryId = playerMatch[1];
         videoId = playerMatch[2];
     } else if (libraryMatch) {
+        libraryId = libraryMatch[1];
         videoId = libraryMatch[2];
+    } else if (embedMatch) {
+        libraryId = embedMatch[1];
+        videoId = embedMatch[2];
     } else if (idOnlyMatch) {
         videoId = idOnlyMatch[1];
     } else {
@@ -169,6 +176,11 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     
     if (!videoId) return url;
     
+    // Always prefer the native robust Bunny Stream host to bypass broken custom DNS
+    if (libraryId) {
+        return `https://vz-${libraryId}.b-cdn.net/${videoId}/thumbnail.jpg`;
+    }
+
     if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
         const base = PULL_ZONE.replace(/\/$/, '');
         return `${base}/${videoId}/thumbnail.jpg`;
