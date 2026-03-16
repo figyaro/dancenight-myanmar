@@ -1,7 +1,9 @@
--- Fix RPCs for user statistics consistency
 -- Standardization: post_count, followers_count, following_count, likes_count, impressions_count
 
 -- 1. Update get_users_with_stats (Fixing last_login column name)
+-- Drop first because return column name is changing
+DROP FUNCTION IF EXISTS public.get_users_with_stats();
+
 CREATE OR REPLACE FUNCTION public.get_users_with_stats()
 RETURNS TABLE (
     id UUID,
