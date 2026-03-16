@@ -26,7 +26,38 @@ export default function PostPage() {
     const [currency, setCurrency] = useState('MMK');
     const [locationName, setLocationName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [encodingProgress, setEncodingProgress] = useState(0);
+    const [isEncoding, setIsEncoding] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
+
+    const startEncodingPoll = (videoId: string) => {
+        setIsEncoding(true);
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        
+        pollingRef.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/media/status?videoId=${videoId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setEncodingProgress(data.encodeProgress || 0);
+                    if (data.ready) {
+                        if (pollingRef.current) clearInterval(pollingRef.current);
+                        router.push('/home');
+                    }
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }, 2000);
+    };
 
     const areas = ['Yankin', 'Sanchaung', 'Bahan', 'Mayangone', 'Kamayut', 'Hlaing', 'Tamwe', 'Downtown'];
 
@@ -108,11 +139,20 @@ export default function PostPage() {
         try {
             // 1 & 2. Upload media to Bunny.net via utility
             const { uploadMedia } = await import('../../lib/media-upload');
-            const { url, error: uploadError } = await uploadMedia(mediaFile, 'posts');
+            const { url, mediaId, error: uploadError } = await uploadMedia(
+                mediaFile, 
+                'posts', 
+                (progress) => setUploadProgress(progress)
+            );
 
             if (uploadError) throw new Error(`アップロード失敗: ${uploadError}`);
 
             const publicUrl = url;
+
+            // Start encoding poll if it's a video
+            if (mediaType === 'video' && mediaId) {
+                startEncodingPoll(mediaId);
+            }
 
             // 3. Insert into DB
             const postData: any = {
@@ -140,7 +180,11 @@ export default function PostPage() {
 
             if (dbError) throw dbError;
 
-            router.push('/home');
+            // If it's an image, redirect immediately.
+            // If it's a video, the poll will redirect once ready.
+            if (mediaType !== 'video') {
+                router.push('/home');
+            }
         } catch (err: any) {
             console.error('Submission error:', err);
             setError(err.message || '投稿中にエラーが発生しました。');
@@ -214,6 +258,38 @@ export default function PostPage() {
                                 <span className="text-sm font-bold text-zinc-400 uppercase tracking-widest">画像/動画を選択</span>
                                 <span className="text-[10px] text-zinc-600 mt-1 uppercase">4:5 ratio recommended</span>
                             </>
+                        )}
+
+                        {/* Progress Overlay */}
+                        {isSubmitting && (
+                            <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                                <div className="relative w-24 h-24 mb-6">
+                                    <svg className="w-full h-full text-zinc-800 -rotate-90" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6" />
+                                        <circle 
+                                            cx="50" cy="50" r="45" 
+                                            fill="none" stroke="#ec4899" 
+                                            strokeWidth="6" 
+                                            strokeDasharray="283" 
+                                            strokeDashoffset={283 - (283 * ((isEncoding ? encodingProgress : uploadProgress) / 100))} 
+                                            strokeLinecap="round" 
+                                            className="transition-all duration-500 ease-out shadow-[0_0_15px_rgba(236,72,153,0.5)]" 
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-pink-500 font-black text-2xl leading-none">
+                                            {isEncoding ? encodingProgress : uploadProgress}
+                                            <span className="text-xs uppercase ml-0.5">%</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <h3 className="text-white font-black tracking-widest text-lg uppercase mb-2">
+                                    {isEncoding ? 'Encoding Video' : 'Uploading Media'}
+                                </h3>
+                                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">
+                                    {isEncoding ? 'Optimizing your content...' : 'Sending to Bunny.net...'}
+                                </p>
+                            </div>
                         )}
                         <input
                             type="file"

@@ -641,16 +641,27 @@ function HomeFeedContent() {
                                     {videoStatusMap[post.id]?.ready === false && (
                                         <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
                                             <div className="relative w-24 h-24 mb-6">
-                                                <svg className="animate-spin w-full h-full text-zinc-800" viewBox="0 0 100 100">
-                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" />
-                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#ec4899" strokeWidth="4" strokeDasharray="283" strokeDashoffset={283 - (283 * ((videoStatusMap[post.id]?.encodeProgress || 0) / 100))} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                                                <svg className="w-full h-full text-zinc-800 -rotate-90" viewBox="0 0 100 100">
+                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6" />
+                                                    <circle 
+                                                        cx="50" cy="50" r="45" 
+                                                        fill="none" stroke="#ec4899" 
+                                                        strokeWidth="6" 
+                                                        strokeDasharray="283" 
+                                                        strokeDashoffset={283 - (283 * ((videoStatusMap[post.id]?.encodeProgress || 0) / 100))} 
+                                                        strokeLinecap="round" 
+                                                        className="transition-all duration-700 ease-out shadow-[0_0_15px_rgba(236,72,153,0.5)]" 
+                                                    />
                                                 </svg>
                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                    <span className="text-pink-500 font-black text-xl">{videoStatusMap[post.id]?.encodeProgress || 0}%</span>
+                                                    <span className="text-pink-500 font-black text-2xl leading-none">
+                                                        {videoStatusMap[post.id]?.encodeProgress || 0}
+                                                        <span className="text-xs uppercase ml-0.5">%</span>
+                                                    </span>
                                                 </div>
                                             </div>
                                             <h3 className="text-white font-black tracking-widest text-lg uppercase mb-2">Video Processing</h3>
-                                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.2em] animate-pulse text-center leading-relaxed">Designing the next viral moment...<br/>Get ready to dance.</p>
+                                            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse text-center leading-relaxed">Designing the next viral moment...<br/>Get ready to dance.</p>
                                         </div>
                                     )}
                                 </div>
