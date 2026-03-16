@@ -32,33 +32,36 @@ interface Reservation {
  * Transforms various Google Maps URL formats (share links, place links) 
  * into a URL suitable for <iframe> embedding.
  */
-function getMapEmbedUrl(url: string, shopName: string, area: string) {
-    if (!url) return null;
+function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
+    if (!url) {
+        // Fallback: search by name + area if no specific URL is provided
+        const query = encodeURIComponent(`${shopName} ${area}`);
+        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+    }
 
     // 1. If it's already an embed URL (contains /embed), return as-is
     if (url.includes('/embed') || (url.includes('google.com/maps') && url.includes('output=embed'))) {
         return url;
     }
 
-    // 2. Handle maps.app.goo.gl (short links) or standard search links via Name/Area fallback.
-    // Since we cannot resolve short links client-side due to CORS,
-    // and they often point to a place name, the most reliable way 
-    // to ensure a map shows up is to use the Google Maps Search Embed pattern
-    // with the shop's metadata.
-    
-    // We prioritize the provided URL if it looks like a direct place link with lat/lng
+    // 2. Handle maps.app.goo.gl (short links) or direct place links with Lat/Lng
     const latLngMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (latLngMatch) {
         const lat = latLngMatch[1];
         const lng = latLngMatch[2];
-        return `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`;
+        return `https://www.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed&iwloc=`;
     }
 
-    // Default Fallback: Search by Name + Area
-    // This handles maps.app.goo.gl links perfectly because Google Maps 
-    // will find the business by name.
+    // 3. Check if it's a plain address/search query
+    // If it contains http, it's likely a URL. If not, treat as text query.
+    if (!url.includes('http')) {
+        const query = encodeURIComponent(url);
+        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+    }
+
+    // Default Fallback for generic URLs or short links
     const query = encodeURIComponent(`${shopName} ${area}`);
-    return `https://maps.google.com/maps?q=${query}&hl=en&output=embed`;
+    return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
 }
 
 export default function ShopDetail() {
@@ -385,13 +388,15 @@ export default function ShopDetail() {
 
             {/* Background Map (Simulated with Placeholder or Embed) */}
             <div className={`fixed inset-0 z-0 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${isMapExpanded ? 'opacity-100 scale-105' : 'opacity-40 scale-100'}`}>
-                {(shop.map_url || (shop.address && shop.address.includes('http'))) ? (
+                {(shop.map_url || shop.address || shop.location || shop.area) ? (
                     <iframe
                         width="100%"
                         height="100%"
                         style={{ border: 0 }}
-                        src={getMapEmbedUrl(shop.map_url || shop.address, shop.name, shop.area) || ''}
+                        src={getMapEmbedUrl(shop.map_url || shop.address || shop.location, shop.name, shop.area) || ''}
                         allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
                     ></iframe>
                 ) : (
                     <div className="w-full h-full bg-zinc-900 flex items-center justify-center">

@@ -8,21 +8,29 @@ import LoadingScreen from '../../../components/LoadingScreen';
 /**
  * Transforms various Google Maps URL formats into an embeddable iframe source.
  */
-function getMapEmbedUrl(url: string, shopName: string, area: string) {
-    if (!url) return null;
+function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
+    if (!url) {
+        if (!shopName) return null;
+        const query = encodeURIComponent(`${shopName} ${area}`);
+        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+    }
+
     if (url.includes('/embed') || (url.includes('google.com/maps') && url.includes('output=embed'))) {
         return url;
     }
+
     const latLngMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (latLngMatch) {
-        return `https://maps.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=en&z=15&output=embed`;
+        return `https://www.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=en&z=15&output=embed&iwloc=`;
     }
-    // Check if the address field itself is a URL (contains http)
-    if (url.includes('http')) {
-        const query = encodeURIComponent(`${shopName} ${area}`);
-        return `https://maps.google.com/maps?q=${query}&hl=en&output=embed`;
+
+    if (!url.includes('http')) {
+        const query = encodeURIComponent(url);
+        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
     }
-    return null;
+
+    const query = encodeURIComponent(`${shopName} ${area}`);
+    return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
 }
 
 export default function ShopSettings() {
