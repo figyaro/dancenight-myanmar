@@ -48,8 +48,9 @@ export default function Discover() {
                 .from('posts')
                 .select(`
                     *,
-                    impressions:post_impressions(count)
-                `);
+                    impressions:analytics_events(count)
+                `)
+                .eq('analytics_events.event_type', 'post_impression');
 
             if (activeTab === 'newest') {
                 query = query.order('created_at', { ascending: false });
@@ -90,27 +91,33 @@ export default function Discover() {
 
     // Auto-play on scroll logic
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    const video = entry.target.querySelector('video');
-                    if (!video) return;
+        if (loading || filteredPosts.length === 0) return;
+        
+        try {
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        const video = entry.target.querySelector('video');
+                        if (!video) return;
 
-                    if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-                        video.play().catch(() => {});
-                    } else {
-                        video.pause();
-                        video.currentTime = 0;
-                    }
-                });
-            },
-            { threshold: [0, 0.5, 1.0] }
-        );
+                        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                            video.play().catch(() => {});
+                        } else {
+                            video.pause();
+                            video.currentTime = 0;
+                        }
+                    });
+                },
+                { threshold: [0, 0.5, 1.0] }
+            );
 
-        const videoContainers = document.querySelectorAll('.video-container');
-        videoContainers.forEach((container) => observer.observe(container));
+            const videoContainers = document.querySelectorAll('.video-container');
+            videoContainers.forEach((container) => observer.observe(container));
 
-        return () => observer.disconnect();
+            return () => observer.disconnect();
+        } catch (e) {
+            console.error('Observer failed:', e);
+        }
     }, [filteredPosts, loading]);
 
     return (

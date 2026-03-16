@@ -7,8 +7,13 @@ import { supabase } from './supabase';
  */
 export async function getEffectiveUserId(): Promise<string | null> {
     if (typeof window !== 'undefined') {
-        const impersonatedId = sessionStorage.getItem('impersonatedId');
-        if (impersonatedId) return impersonatedId;
+        try {
+            const impersonatedId = sessionStorage.getItem('impersonatedId');
+            if (impersonatedId) return impersonatedId;
+        } catch (e) {
+            // Handle cross-origin or private mode errors in some browsers
+            console.warn('sessionStorage access failed:', e);
+        }
     }
 
     // Use getSession() instead of getUser() for performance and to avoid refresh token loops

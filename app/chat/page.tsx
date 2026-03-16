@@ -118,8 +118,7 @@ function ChatContent() {
             supabase.removeChannel(channel);
         };
     }, []);
-
-    if (loading) return null; // GlobalLoader will handle this
+    if (loading) return <LoadingScreen />;
 
     return (
         <div className="bg-black min-h-screen text-white">
@@ -226,7 +225,11 @@ function ChatContent() {
 
             <BottomNav />
         </div>
-    );
+        );
+    } catch (e) {
+        console.error('Chat render error:', e);
+        return <div className="p-10 text-center">Load Error</div>;
+    }
 }
 
 export default function Chat() {
