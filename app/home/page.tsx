@@ -206,7 +206,7 @@ function HomeFeedContent() {
 
                     const initialPosts = data || posts;
                     if (initialPosts.length > 0) {
-                        setTimeout(() => setActivePostId(initialPosts[0].id), 300);
+                        setActivePostId(initialPosts[0].id);
                     }
                 }
             } catch (err) {
@@ -437,43 +437,51 @@ function HomeFeedContent() {
     useEffect(() => {
         if (!activePostId) return;
 
-        const timer = setTimeout(() => {
-            Object.entries(postRefs.current).forEach(([id, container]) => {
+        Object.entries(postRefs.current).forEach(([id, container]) => {
                 const video = container?.querySelector('video');
                 const iframe = container?.querySelector('iframe');
 
                 if (id === activePostId) {
-                    if (video) {
-                        if (isPlaying) {
-                            video.play().catch(err => console.warn("Auto-play blocked:", err));
-                        } else {
-                            video.pause();
+                        if (video) {
+                            if (isPlaying) {
+                                video.play().catch(err => console.warn("Auto-play blocked:", err));
+                            } else {
+                                video.pause();
+                            }
+                            video.muted = !hasInteracted || isMuted;
+                            video.volume = volume;
                         }
-                        video.muted = !hasInteracted || isMuted;
-                        video.volume = volume;
-                    }
-                    if (iframe && iframe.contentWindow) {
-                        try {
-                            const win = iframe.contentWindow;
-                            // Send multiple times to ensure internal player script catches it if booting up
-                            const sendPlay = () => {
-                                if (isPlaying) win.postMessage(JSON.stringify({ method: 'play' }), '*');
-                                if (!hasInteracted || isMuted) {
-                                    win.postMessage(JSON.stringify({ method: 'mute' }), '*');
-                                } else {
-                                    win.postMessage(JSON.stringify({ method: 'unmute' }), '*');
-                                    win.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
-                                }
-                            };
-                            
-                            sendPlay();
-                            setTimeout(sendPlay, 500);
-                            setTimeout(sendPlay, 1000);
-                            setTimeout(sendPlay, 2000);
-                        } catch (e) {
-                            console.warn("Iframe interaction error:", e);
+                        if (iframe && iframe.contentWindow) {
+                            try {
+                                const win = iframe.contentWindow;
+                                // Use direct string 'play' as fallback if JSON fails
+                                const sendPlay = () => {
+                                    if (isPlaying) {
+                                        win.postMessage(JSON.stringify({ method: 'play' }), '*');
+                                        win.postMessage('play', '*');
+                                    } else {
+                                        win.postMessage(JSON.stringify({ method: 'pause' }), '*');
+                                        win.postMessage('pause', '*');
+                                    }
+                                    
+                                    if (!hasInteracted || isMuted) {
+                                        win.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                                        win.postMessage('mute', '*');
+                                    } else {
+                                        win.postMessage(JSON.stringify({ method: 'unmute' }), '*');
+                                        win.postMessage('unmute', '*');
+                                        win.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
+                                    }
+                                };
+                                
+                                sendPlay();
+                                // Reduced timeouts for better response
+                                setTimeout(sendPlay, 300);
+                                setTimeout(sendPlay, 800);
+                            } catch (e) {
+                                console.warn("Iframe interaction error:", e);
+                            }
                         }
-                    }
                 } else {
                     if (video) {
                         video.pause();
@@ -487,9 +495,6 @@ function HomeFeedContent() {
                     }
                 }
             });
-        }, 100);
-
-        return () => clearTimeout(timer);
     }, [activePostId, hasInteracted, isMuted, volume, posts, isPlaying]);
 
     const togglePlay = (e: React.MouseEvent | React.TouchEvent) => {
@@ -586,25 +591,27 @@ function HomeFeedContent() {
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
                                     <div className={`absolute inset-0 transition-opacity duration-1000 ${videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
                                         <iframe
-                                            src={getBunnyStreamEmbedUrl(post.main_image_url, false) || ''}
+                                            src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
                                             loading="lazy"
                                             style={{ border: 0, width: '100%', height: '100%' }}
                                             className="w-full h-full object-cover pointer-events-none" 
                                             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                                             allowFullScreen
                                             onLoad={(e) => {
+                                                // Even if autoplay is in URL, send play message just in case browser blocked it
                                                 if (activePostId === post.id && isPlaying) {
                                                     const win = e.currentTarget.contentWindow;
                                                     const sendPlay = () => {
                                                         win?.postMessage(JSON.stringify({ method: 'play' }), '*');
                                                         if (!hasInteracted || isMuted) {
                                                             win?.postMessage(JSON.stringify({ method: 'mute' }), '*');
+                                                        } else {
+                                                            win?.postMessage(JSON.stringify({ method: 'unmute' }), '*');
                                                         }
                                                     };
                                                     sendPlay();
                                                     setTimeout(sendPlay, 500);
                                                     setTimeout(sendPlay, 1000);
-                                                    setTimeout(sendPlay, 2000);
                                                 }
                                             }}
                                         ></iframe>

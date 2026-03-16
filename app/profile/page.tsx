@@ -16,6 +16,7 @@ export default function Profile() {
     const [userPosts, setUserPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+    const [lastTap, setLastTap] = useState<{ id: string, time: number } | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -69,6 +70,29 @@ export default function Profile() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
+    };
+
+    const handlePostTap = (post: any) => {
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+        const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
+
+        if (lastTap && lastTap.id === post.id && (now - lastTap.time) < DOUBLE_TAP_DELAY) {
+            // Double Tap -> Navigate to Home
+            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
+            setLastTap(null);
+        } else {
+            // Single Tap -> Play in thumbnail (if video)
+            setLastTap({ id: post.id, time: now });
+            
+            if (isPostVideo) {
+                // Toggle playback
+                setPlayingVideoId(prev => prev === post.id ? null : post.id);
+            } else {
+                // For images, single-tap navigation
+                router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
+            }
+        }
     };
 
     if (loading) {
@@ -252,12 +276,10 @@ export default function Profile() {
                                 return (
                                     <div 
                                         key={post.id} 
-                                        onClick={() => {
-                                            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
-                                        }}
-                                        className="aspect-[9/16] liquid-glass !rounded-xl !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform"
+                                        onClick={() => handlePostTap(post)}
+                                        className="aspect-[9/16] liquid-glass !rounded-xl !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
                                     >
-                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow */}
+                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow slice */}
                                         {post.main_image_url ? (
                                             isBunnyStream(post.main_image_url) ? (
                                                 isPlaying ? (
