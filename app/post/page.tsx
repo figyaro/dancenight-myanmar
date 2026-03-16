@@ -64,7 +64,7 @@ export default function PostPage() {
     useEffect(() => {
         const fetchUserData = async () => {
             if (!isSupabaseConfigured) {
-                setError('Supabaseの環境設定が見つかりません。');
+                setError('Supabase configuration not found.');
                 setLoading(false);
                 return;
             }
@@ -87,7 +87,7 @@ export default function PostPage() {
                 setProfile(profileData);
             } catch (err: any) {
                 console.error('Error fetching user data:', err);
-                setError('ユーザー情報の取得に失敗しました。');
+                setError('Failed to fetch user information.');
             } finally {
                 setLoading(false);
             }
@@ -105,7 +105,7 @@ export default function PostPage() {
                 video.onloadedmetadata = function() {
                     window.URL.revokeObjectURL(video.src);
                     if (video.duration > 15.5) { // Allowing a small buffer
-                        setError('16秒以上の動画は現在アップロードできません。15秒以内の動画を選択してください。');
+                        setError('Videos longer than 15 seconds cannot be uploaded currently. Please select a video within 15 seconds.');
                         setMediaFile(null);
                         setMediaPreview(null);
                         setMediaType(null);
@@ -145,7 +145,7 @@ export default function PostPage() {
                 (progress) => setUploadProgress(progress)
             );
 
-            if (uploadError) throw new Error(`アップロード失敗: ${uploadError}`);
+            if (uploadError) throw new Error(`Upload failed: ${uploadError}`);
 
             const publicUrl = url;
 
@@ -187,7 +187,7 @@ export default function PostPage() {
             }
         } catch (err: any) {
             console.error('Submission error:', err);
-            setError(err.message || '投稿中にエラーが発生しました。');
+            setError(err.message || 'An error occurred during posting.');
         } finally {
             setIsSubmitting(false);
         }
@@ -210,15 +210,15 @@ export default function PostPage() {
                         onClick={() => router.back()}
                         className="text-gray-400 hover:text-white"
                     >
-                        キャンセル
+                        Cancel
                     </button>
-                    <h1 className="text-lg font-bold">新規投稿 ({profile?.role === 'dancer' ? 'ダンサー' : '一般'})</h1>
+                    <h1 className="text-lg font-bold">New Post ({profile?.role === 'dancer' ? 'Dancer' : 'General'})</h1>
                     <button
                         onClick={handleSubmit}
                         disabled={!content.trim() && !caption.trim() || isSubmitting || !mediaFile}
                         className="text-pink-500 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isSubmitting ? '処理中...' : '投稿する'}
+                        {isSubmitting ? 'Processing...' : 'Post'}
                     </button>
                 </div>
             </header>
@@ -255,7 +255,7 @@ export default function PostPage() {
                                         <polyline points="21 15 16 10 5 21" />
                                     </svg>
                                 </div>
-                                <span className="text-sm font-bold text-zinc-400 uppercase tracking-widest">画像/動画を選択</span>
+                                <span className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Select Image/Video</span>
                                 <span className="text-[10px] text-zinc-600 mt-1 uppercase">4:5 ratio recommended</span>
                             </>
                         )}
@@ -302,11 +302,11 @@ export default function PostPage() {
 
                     {/* Caption */}
                     <div>
-                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">キャプション</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Caption</label>
                         <textarea
                             value={caption}
                             onChange={(e) => setCaption(e.target.value)}
-                            placeholder="素晴らしい踊りを見せよう..."
+                            placeholder="Show your amazing dance..."
                             className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 text-white placeholder-zinc-700 focus:outline-none focus:border-pink-500 min-h-[100px] resize-none transition-colors"
                         />
                     </div>
@@ -315,20 +315,20 @@ export default function PostPage() {
                     {profile?.role === 'dancer' ? (
                         <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <div className="col-span-2">
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">エリア</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Area</label>
                                 <select
                                     value={area}
                                     onChange={(e) => setArea(e.target.value)}
                                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none transition-colors"
                                 >
-                                    <option value="">エリアを選択</option>
+                                    <option value="">Select Area</option>
                                     {areas.map(a => (
                                         <option key={a} value={a}>{a}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">料金</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Price</label>
                                 <input
                                     type="number"
                                     value={price}
@@ -338,7 +338,7 @@ export default function PostPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">通貨</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Currency</label>
                                 <select
                                     value={currency}
                                     onChange={(e) => setCurrency(e.target.value)}
@@ -349,7 +349,7 @@ export default function PostPage() {
                                 </select>
                             </div>
                             <div className="col-span-2">
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">場所 (Shop等)</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Location (Shop, etc.)</label>
                                 <input
                                     type="text"
                                     value={locationName}
@@ -361,13 +361,13 @@ export default function PostPage() {
                         </div>
                     ) : (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">エリア (任意)</label>
+                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 px-1">Area (Optional)</label>
                             <select
                                 value={area}
                                 onChange={(e) => setArea(e.target.value)}
                                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none transition-colors"
                             >
-                                <option value="">選択しない</option>
+                                <option value="">Not Selected</option>
                                 {areas.map(a => (
                                     <option key={a} value={a}>{a}</option>
                                 ))}

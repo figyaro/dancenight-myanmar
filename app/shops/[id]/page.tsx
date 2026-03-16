@@ -51,14 +51,14 @@ function getMapEmbedUrl(url: string, shopName: string, area: string) {
     if (latLngMatch) {
         const lat = latLngMatch[1];
         const lng = latLngMatch[2];
-        return `https://maps.google.com/maps?q=${lat},${lng}&hl=ja&z=15&output=embed`;
+        return `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`;
     }
 
     // Default Fallback: Search by Name + Area
     // This handles maps.app.goo.gl links perfectly because Google Maps 
     // will find the business by name.
     const query = encodeURIComponent(`${shopName} ${area}`);
-    return `https://maps.google.com/maps?q=${query}&hl=ja&output=embed`;
+    return `https://maps.google.com/maps?q=${query}&hl=en&output=embed`;
 }
 
 export default function ShopDetail() {

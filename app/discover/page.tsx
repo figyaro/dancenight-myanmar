@@ -16,9 +16,9 @@ interface Post {
 }
 
 const sortTabs = [
-    { id: 'newest', label: '新着' },
-    { id: 'popular', label: '人気' },
-    { id: 'interested', label: 'おすすめ' },
+    { id: 'newest', label: 'NEW' },
+    { id: 'popular', label: 'POPULAR' },
+    { id: 'interested', label: 'RECOMMENDED' },
 ];
 
 export default function Discover() {
@@ -90,7 +90,7 @@ export default function Discover() {
 
     return (
         <div className="bg-black min-h-screen text-white">
-            {/* ヘッダー */}
+            {/* Header */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/5">
                 <div className="max-w-md mx-auto px-4 pt-6 pb-2">
                     <div className="flex items-center justify-between mb-6">
@@ -135,7 +135,7 @@ export default function Discover() {
                                 </svg>
                                 <input
                                     type="text"
-                                    placeholder="エリア、名前、特徴で探索..."
+                                    placeholder="Search by area, name, or style..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-xs font-bold placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 transition-all"
@@ -143,8 +143,8 @@ export default function Discover() {
                             </div>
                         </div>
                     </div>
-
-                    {/* ソートタブ */}
+ 
+                    {/* Sort Tabs */}
                     <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-xl border border-white/5 mb-2">
                         {sortTabs.map((tab) => (
                             <button

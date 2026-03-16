@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dance Night Myanmar",
-  description: "ミャンマーのダンス・ナイトライフ情報プラットフォーム",
+  title: "Dance Together",
+  description: "ミャンマー最大のダンス・ナイトライフプラットフォーム",
 };
 
 export default function RootLayout({

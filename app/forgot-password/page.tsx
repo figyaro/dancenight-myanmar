@@ -22,7 +22,7 @@ export default function ForgotPassword() {
                 const missing = [];
                 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) missing.push('URL');
                 if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) missing.push('Key');
-                throw new Error(`Supabaseの環境設定 (${missing.join(' & ')}) が見つかりません。VercelのSettingsでキー名が正しいか、Production環境がチェックされているか確認してください。`);
+                throw new Error(`Supabase configuration (${missing.join(' & ')}) not found. Check if key names are correct and Production environment is checked in Vercel settings.`);
             }
 
             // Vercel deployment URL or local URL
@@ -34,10 +34,10 @@ export default function ForgotPassword() {
 
             if (resetError) throw resetError;
 
-            setMessage('パスワード再設定用のメールを送信しました。メールボックスを確認してください。');
+            setMessage('Password reset email sent. Please check your inbox.');
         } catch (err: any) {
             console.error('Reset password error:', err);
-            setError(err.message || 'エラーが発生しました。もう一度お試しください。');
+            setError(err.message || 'An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -51,7 +51,7 @@ export default function ForgotPassword() {
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
-                    <span className="text-sm font-medium">戻る</span>
+                    <span className="text-sm font-medium">Back</span>
                 </button>
             </div>
 
@@ -59,8 +59,8 @@ export default function ForgotPassword() {
             <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-pink-600/10 blur-[100px] rounded-full pointer-events-none" />
 
             <div className="z-10 w-full max-w-sm mx-auto mt-16">
-                <h1 className="text-3xl font-bold mb-2">パスワード再設定</h1>
-                <p className="text-zinc-400 text-sm mb-8">登録済みのメールアドレスを入力してください。パスワード再設定用のリンクをお送りします。</p>
+                <h1 className="text-3xl font-bold mb-2">Reset Password</h1>
+                <p className="text-zinc-400 text-sm mb-8">Enter your registered email address and we'll send you a link to reset your password.</p>
 
                 {message && (
                     <div className="bg-green-500/10 border border-green-500/50 text-green-500 text-sm p-4 rounded-xl mb-6 flex items-start gap-3">
@@ -80,7 +80,7 @@ export default function ForgotPassword() {
 
                 <form onSubmit={handleResetRequest} className="flex flex-col gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-2">メールアドレス</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">Email Address</label>
                         <input
                             type="email"
                             required
@@ -96,7 +96,7 @@ export default function ForgotPassword() {
                         disabled={loading || !!message}
                         className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-4 rounded-xl text-center shadow-[0_4px_14px_0_rgba(219,39,119,0.39)] transition-all duration-300 hover:shadow-[0_6px_20px_rgba(219,39,119,0.23)] hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? '送信中...' : '再設定メールを送信'}
+                        {loading ? 'Sending...' : 'Send Reset Link'}
                     </button>
 
                     {message && (
@@ -105,7 +105,7 @@ export default function ForgotPassword() {
                             onClick={() => router.push('/login')}
                             className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-xl text-center border border-zinc-700 transition-all"
                         >
-                            ログイン画面に戻る
+                            Back to Login
                         </button>
                     )}
                 </form>

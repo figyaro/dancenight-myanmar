@@ -185,7 +185,7 @@ export default function Profile() {
                         {profile?.gender && (
                             <div className="flex items-center justify-between">
                                 <span className="text-zinc-500">{t('gender', profile?.language)}</span>
-                                <span>{profile.gender}</span>
+                                <span>{profile.gender === '男性' ? 'Male' : profile.gender === '女性' ? 'Female' : profile.gender === 'その他' ? 'Other' : profile.gender}</span>
                             </div>
                         )}
                         {profile?.nationality && (
@@ -231,7 +231,7 @@ export default function Profile() {
                     </Link>
                 )}
 
-                {/* ダンサー条件のサマリー表示 (Dancerのみ) */}
+                {/* Dancer conditions summary (Dancer only) */}
                 {profile?.role === 'dancer' && dancerData && (
                     <div className="liquid-glass p-5 mb-6">
                         <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
@@ -336,13 +336,13 @@ export default function Profile() {
                             })}
                         </div>
                     ) : (
-                        <div className="liquid-glass py-12 text-center">
-                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">📸</div>
+                        <Link href="/post" className="liquid-glass py-12 text-center block hover:bg-white/5 transition-all group">
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20 group-hover:scale-110 transition-transform">📸</div>
                             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
-                            <Link href="/posts/new" className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block hover:text-pink-400 transition-colors">
+                            <span className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block group-hover:text-pink-400 transition-colors">
                                 Share your first update
-                            </Link>
-                        </div>
+                            </span>
+                        </Link>
                     )}
                 </div>
             </main>

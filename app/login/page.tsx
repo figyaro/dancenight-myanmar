@@ -28,7 +28,7 @@ export default function Login() {
             router.push('/home');
         } catch (err: any) {
             console.error('Login error:', err);
-            setError('メールアドレスまたはパスワードが間違っています。');
+            setError('Invalid email or password.');
         } finally {
             setLoading(false);
         }
@@ -42,7 +42,7 @@ export default function Login() {
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
-                    <span className="text-sm font-medium">戻る</span>
+                    <span className="text-sm font-medium">Back</span>
                 </button>
             </div>
 
@@ -50,8 +50,8 @@ export default function Login() {
             <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none" />
 
             <div className="z-10 w-full max-w-sm mx-auto mt-16">
-                <h1 className="text-3xl font-bold mb-2">ログイン</h1>
-                <p className="text-zinc-400 text-sm mb-6">おかえりなさい！</p>
+                <h1 className="text-3xl font-bold mb-2">Login</h1>
+                <p className="text-zinc-400 text-sm mb-6">Welcome back!</p>
 
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-lg mb-6">
@@ -62,7 +62,7 @@ export default function Login() {
                 <form onSubmit={handleLogin} className="flex flex-col gap-5">
                     <div className="space-y-5">
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">メールアドレス</label>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Email Address</label>
                             <input
                                 type="email"
                                 required
@@ -75,9 +75,9 @@ export default function Login() {
 
                         <div>
                             <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm font-medium text-zinc-400">パスワード</label>
+                                <label className="block text-sm font-medium text-zinc-400">Password</label>
                                 <Link href="/forgot-password" id="forgot-password-link" className="text-xs text-pink-500 hover:text-pink-400">
-                                    パスワードを忘れた場合
+                                    Forgot Password?
                                 </Link>
                             </div>
                             <input
@@ -96,15 +96,15 @@ export default function Login() {
                         disabled={loading}
                         className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-4 rounded-xl text-center shadow-[0_4px_14px_0_rgba(219,39,119,0.39)] transition-all duration-300 hover:shadow-[0_6px_20px_rgba(219,39,119,0.23)] hover:scale-[1.01] mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? 'ログイン処理中...' : 'ログイン'}
+                        {loading ? 'Logging in...' : 'Login'}
                     </button>
                 </form>
 
                 <div className="mt-8 text-center">
                     <p className="text-zinc-500 text-sm">
-                        アカウントをお持ちでないですか？{' '}
+                        Don't have an account?{' '}
                         <Link href="/register" className="text-pink-400 hover:text-pink-300 font-medium">
-                            新規登録
+                            Sign Up
                         </Link>
                     </p>
                 </div>

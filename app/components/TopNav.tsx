@@ -53,7 +53,7 @@ export default function TopNav() {
                     >
                         <img
                             src="/logoDN.svg"
-                            alt="DanceNight"
+                            alt="Dance Together"
                             className={`h-12 w-auto object-contain drop-shadow-lg transition-transform duration-700 ${isVisible ? 'rotate-0' : 'rotate-[360deg]'
                                 }`}
                         />

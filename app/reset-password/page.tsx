@@ -16,12 +16,12 @@ function ResetPasswordContent() {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            setError('パスワードが一致しません。');
+            setError('Passwords do not match.');
             return;
         }
 
         if (password.length < 6) {
-            setError('パスワードは6文字以上で入力してください。');
+            setError('Password must be at least 6 characters.');
             return;
         }
 
@@ -31,7 +31,7 @@ function ResetPasswordContent() {
 
         try {
             if (!isSupabaseConfigured) {
-                throw new Error('Supabaseの環境設定が見つかりません。');
+                throw new Error('Supabase configuration not found.');
             }
 
             const { error: updateError } = await supabase.auth.updateUser({
@@ -40,13 +40,13 @@ function ResetPasswordContent() {
 
             if (updateError) throw updateError;
 
-            setMessage('パスワードを更新しました。5秒後にホーム画面へ移動します。');
+            setMessage('Password updated successfully. Redirecting to home in 5 seconds...');
             setTimeout(() => {
                 router.push('/home');
             }, 5000);
         } catch (err: any) {
             console.error('Update password error:', err);
-            setError(err.message || 'エラーが発生しました。もう一度お試しください。');
+            setError(err.message || 'An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -54,12 +54,12 @@ function ResetPasswordContent() {
 
     return (
         <div className="bg-black min-h-screen text-white flex flex-col px-6 pt-12 pb-6 relative overflow-hidden">
-            {/* 装飾 */}
+            {/* Decoration */}
             <div className="absolute top-[-20%] right-[-20%] w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none" />
 
             <div className="z-10 w-full max-w-sm mx-auto mt-16">
-                <h1 className="text-3xl font-bold mb-2">新しいパスワードの設定</h1>
-                <p className="text-zinc-400 text-sm mb-8">新しいパスワードを入力してください。</p>
+                <h1 className="text-3xl font-bold mb-2">Set New Password</h1>
+                <p className="text-zinc-400 text-sm mb-8">Please enter your new password.</p>
 
                 {message && (
                     <div className="bg-green-500/10 border border-green-500/50 text-green-500 text-sm p-4 rounded-xl mb-6">
@@ -76,7 +76,7 @@ function ResetPasswordContent() {
                 {!message && (
                     <form onSubmit={handlePasswordUpdate} className="flex flex-col gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-2">新しいパスワード</label>
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">New Password</label>
                             <input
                                 type="password"
                                 required
@@ -89,7 +89,7 @@ function ResetPasswordContent() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-2">パスワードの確認</label>
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">Confirm Password</label>
                             <input
                                 type="password"
                                 required
@@ -106,7 +106,7 @@ function ResetPasswordContent() {
                             disabled={loading}
                             className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-4 rounded-xl text-center shadow-[0_4px_14px_0_rgba(219,39,119,0.39)] transition-all duration-300 hover:shadow-[0_6px_20px_rgba(219,39,119,0.23)] hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? '更新中...' : 'パスワードを更新'}
+                            {loading ? 'Updating...' : 'Update Password'}
                         </button>
                     </form>
                 )}
@@ -116,7 +116,7 @@ function ResetPasswordContent() {
                         onClick={() => router.push('/home')}
                         className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-xl text-center border border-zinc-700 transition-all mt-4"
                     >
-                        今すぐホーム画面へ
+                        Go to Home Now
                     </button>
                 )}
             </div>

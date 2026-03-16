@@ -8,9 +8,9 @@ import TopNav from '../../components/TopNav';
 import BottomNav from '../../components/BottomNav';
 
 const PREDEFINED_TAGS = [
-    'クラブ希望', '飲みもOK', '朝までOK', '門限あり', '約束は守る', 'とにかく踊りたい',
-    'ノリ重視', '初心者歓迎', 'プロ志向', 'ハイテンション', 'お酒弱め', 'シャイです',
-    'HIPHOP専門', 'K-POPカバー得意', 'フリースタイル可', '指導経験あり'
+    'Clubbing', 'Drinking OK', 'Until Morning', 'Curfew OK', 'Keep Promises', 'Just Wanna Dance',
+    'Vibe Focused', 'Beginners Welcome', 'Pro-Oriented', 'High Tension', 'Low Tolerance', 'I am Shy',
+    'HIPHOP Spec', 'K-POP Cover', 'Freestyle OK', 'Tutor Experience'
 ];
 
 export default function DancerConditions() {
@@ -130,42 +130,42 @@ export default function DancerConditions() {
                     {/* Basic Info */}
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">可能な時間帯・曜日</label>
+                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">Available Times / Days</label>
                             <input 
                                 value={availability}
                                 onChange={(e) => setAvailability(e.target.value)}
-                                placeholder="例: 月〜金 20:00以降, 土日OK"
+                                placeholder="e.g. Mon-Fri after 20:00, Weekends OK"
                                 className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-pink-500/50 outline-none transition-all"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">価格 (1時間あたり)</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">Price (per hour)</label>
                                 <input 
                                     value={price}
                                     onChange={(e) => setPrice(e.target.value)}
-                                    placeholder="例: 30,000 MMK"
+                                    placeholder="e.g. 30,000 MMK"
                                     className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-pink-500/50 outline-none transition-all font-bold text-pink-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">場所</label>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">Location</label>
                                 <input 
                                     value={place}
                                     onChange={(e) => setPlace(e.target.value)}
-                                    placeholder="例: ヤンゴン市内, クラブ限定"
+                                    placeholder="e.g. Yangon, Club only"
                                     className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-pink-500/50 outline-none transition-all"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">ひとことコメント</label>
+                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">Short Comment</label>
                             <textarea 
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
-                                placeholder="ダンスに対する思いや、お誘いの際の注意点など"
+                                placeholder="Your thoughts on dance or any notes for invitations..."
                                 rows={3}
                                 className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-pink-500/50 outline-none transition-all resize-none"
                             />
@@ -174,7 +174,7 @@ export default function DancerConditions() {
 
                     {/* Tags Section */}
                     <div>
-                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-1">スタイル・タグ設定</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 px-1">Style & Tag Settings</label>
                         <div className="flex flex-wrap gap-2 mb-4">
                             {PREDEFINED_TAGS.map(tag => (
                                 <button
@@ -196,14 +196,14 @@ export default function DancerConditions() {
                                 value={customTag}
                                 onChange={(e) => setCustomTag(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
-                                placeholder="カスタムタグを追加..."
+                                placeholder="Add custom tag..."
                                 className="flex-1 bg-zinc-900 border border-white/5 rounded-xl px-4 py-2 text-xs focus:border-pink-500/50 outline-none"
                             />
                             <button 
                                 onClick={addCustomTag}
                                 className="bg-zinc-800 px-4 rounded-xl text-xs font-bold border border-white/10"
                             >
-                                追加
+                                Add
                             </button>
                         </div>
                     </div>
@@ -213,7 +213,7 @@ export default function DancerConditions() {
                         disabled={saving}
                         className="w-full bg-gradient-to-r from-pink-600 to-rose-600 text-white py-4 rounded-2xl font-black text-sm tracking-widest uppercase shadow-xl shadow-pink-900/40 active:scale-[0.98] transition-all disabled:opacity-50"
                     >
-                        {saving ? '保存中...' : '設定を保存する'}
+                        {saving ? 'Saving...' : 'Save Settings'}
                     </button>
                 </div>
             </main>

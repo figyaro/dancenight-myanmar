@@ -689,7 +689,7 @@ function HomeFeedContent() {
                             )
                         ) : (
                             <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center text-zinc-600">
-                                <span className="font-black tracking-tighter opacity-20 text-4xl">DANCE NIGHT</span>
+                                <span className="font-black tracking-tighter opacity-20 text-4xl">DANCE TOGETHER</span>
                             </div>
                         )}
                         

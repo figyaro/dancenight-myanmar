@@ -485,10 +485,20 @@ export default function PublicProfile() {
                             })}
                         </div>
                     ) : (
-                        <div className="liquid-glass py-12 text-center">
-                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">🪩</div>
-                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
-                        </div>
+                        currentUser?.id === id ? (
+                            <Link href="/post" className="liquid-glass py-12 text-center block hover:bg-white/5 transition-all group">
+                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20 group-hover:scale-110 transition-transform">🪩</div>
+                                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                                <span className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block group-hover:text-pink-400 transition-colors">
+                                    Share your first update
+                                </span>
+                            </Link>
+                        ) : (
+                            <div className="liquid-glass py-12 text-center">
+                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">🪩</div>
+                                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                            </div>
+                        )
                     )}
                 </div>
             </main>

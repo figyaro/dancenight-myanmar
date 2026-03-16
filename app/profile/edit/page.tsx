@@ -32,7 +32,7 @@ export default function EditProfile() {
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const imageRef = useRef<HTMLImageElement>(null);
 
-    // クライアントサイドでの画像圧縮&クロップ処理 (最大400x400pxのJPEG)
+    // Client-side image compression & cropping (Max 400x400px JPEG)
     const handleCropComplete = async () => {
         if (!imageRef.current || !cropImageSrc) return;
 
@@ -69,7 +69,7 @@ export default function EditProfile() {
                     if (!blob) throw new Error('Blob creation failed');
 
                     const userId = await getEffectiveUserId();
-                    if (!userId) throw new Error('ログインセッションが切れています。もう一度ログインしてください。');
+                    if (!userId) throw new Error('Login session expired. Please log in again.');
 
                     const newFile = new File([blob], `${userId}-${Date.now()}.jpeg`, { type: 'image/jpeg' });
 
@@ -78,7 +78,7 @@ export default function EditProfile() {
 
                     if (error) {
                         console.error('Upload Error:', error);
-                        throw new Error(`アップロードに失敗しました: ${error}`);
+                        throw new Error(`Upload failed: ${error}`);
                     }
 
                     setFormData(prev => ({ ...prev, avatar_url: url }));
@@ -93,7 +93,7 @@ export default function EditProfile() {
 
         } catch (error: any) {
             console.error('Crop outer error:', error);
-            alert('画像の準備に失敗しました: ' + error.message);
+            alert('Failed to prepare image: ' + error.message);
             setSaving(false);
         }
     };
@@ -110,7 +110,7 @@ export default function EditProfile() {
         };
         reader.readAsDataURL(file);
 
-        // input fieldをリセット
+        // Reset input field
         e.target.value = '';
     };
 
@@ -204,16 +204,16 @@ export default function EditProfile() {
 
             if (error) throw error;
 
-            // データが0件の場合はRLSで弾かれている可能性が高い
+            // If 0 items, likely blocked by RLS
             if (!data || data.length === 0) {
-                throw new Error('変更権限がありません。(データベースのRLS設定を確認してください)');
+                throw new Error('No permission to update. (Please check RLS settings)');
             }
 
-            router.refresh(); // Next.js のルーターキャッシュをリセットして最新データを確実にする
+            router.refresh(); // Reset Next.js router cache to ensure latest data
             router.push('/profile');
         } catch (err: any) {
             console.error('Error updating profile:', err);
-            alert('プロフィールの更新に失敗しました: ' + err.message);
+            alert('Failed to update profile: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -235,28 +235,28 @@ export default function EditProfile() {
             <header className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur border-b border-zinc-800">
                 <div className="max-w-md mx-auto flex items-center justify-between px-4 py-4">
                     <Link href="/profile" className="text-pink-500 font-medium">
-                        キャンセル
+                        Cancel
                     </Link>
-                    <h1 className="text-lg font-bold">プロフィール編集</h1>
+                    <h1 className="text-lg font-bold">Edit Profile</h1>
                     <button
                         onClick={handleSubmit}
                         disabled={saving}
                         className={`font-bold ${saving ? 'text-zinc-500' : 'text-pink-500'}`}
                     >
-                        {saving ? '保存中...' : '保存'}
+                        {saving ? 'Saving...' : 'Save'}
                     </button>
                 </div>
             </header>
 
             <main className="pt-20 pb-10 px-4 max-w-md mx-auto">
                 <form className="space-y-6">
-                    {/* アバター画像 */}
+                    {/* Avatar Image */}
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-2">プロフィール画像</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">Profile Image</label>
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 rounded-full bg-zinc-800 overflow-hidden border border-zinc-700 shrink-0">
                                 {formData.avatar_url ? (
-                                    <img src={formData.avatar_url} alt="アバタープレビュー" className="w-full h-full object-cover" />
+                                    <img src={formData.avatar_url} alt="Avatar Preview" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-zinc-500">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -267,7 +267,7 @@ export default function EditProfile() {
                                 )}
                             </div>
                             <label className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm cursor-pointer transition-colors">
-                                画像を選択（切り抜き）
+                                Select Image (Crop)
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -276,13 +276,13 @@ export default function EditProfile() {
                                     disabled={saving}
                                 />
                             </label>
-                            {saving && <span className="text-pink-500 text-sm animate-pulse">保存中...</span>}
+                            {saving && <span className="text-pink-500 text-sm animate-pulse">Saving...</span>}
                         </div>
                     </div>
 
-                    {/* ニックネーム */}
+                    {/* Nickname */}
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-1">ニックネーム</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-1">Nickname</label>
                         <input
                             type="text"
                             name="nickname"
@@ -292,22 +292,22 @@ export default function EditProfile() {
                         />
                     </div>
 
-                    {/* 一言 */}
+                    {/* Short Bio */}
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-1">一言 (Short Bio)</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-1">Short Bio</label>
                         <input
                             type="text"
                             name="short_bio"
                             value={formData.short_bio}
                             onChange={handleChange}
-                            placeholder="よろしくお願いします！"
+                            placeholder="Nice to meet you!"
                             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500"
                         />
                     </div>
 
-                    {/* 今のマインド（アイコン） */}
+                    {/* Mind Icon */}
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-2">今のマインド</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">Current Mindset</label>
                         <div className="grid grid-cols-5 gap-2">
                             {['😁', '😆', '😍', '😎', '😜', '😢', '😭', '😡', '😴', '🥂', '🎤', '💃', '🕺', '🔥', '✨'].map(icon => (
                                 <button
@@ -320,17 +320,17 @@ export default function EditProfile() {
                                 </button>
                             ))}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-2">気分に合うアイコンを選択してください</p>
+                        <p className="text-xs text-zinc-500 mt-2">Select an icon that reflects your mood</p>
                     </div>
 
-                    {/* 基本情報 */}
+                    {/* Basic Info */}
                     <div className="pt-4 border-t border-zinc-800">
-                        <h3 className="font-bold text-zinc-300 mb-4">基本情報</h3>
+                        <h3 className="font-bold text-zinc-300 mb-4">Basic Information</h3>
 
                         <div className="space-y-4">
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-400 mb-1">生年月日</label>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">Birth Date</label>
                                     <input
                                         type="date"
                                         name="birth_date"
@@ -340,23 +340,23 @@ export default function EditProfile() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-400 mb-1">性別</label>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">Gender</label>
                                     <select
                                         name="gender"
                                         value={formData.gender}
                                         onChange={handleChange}
                                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none"
                                     >
-                                        <option value="">選択してください</option>
-                                        <option value="男性">男性</option>
-                                        <option value="女性">女性</option>
-                                        <option value="その他">その他</option>
+                                        <option value="">Select</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-zinc-400 mb-1">電話番号</label>
+                                <label className="block text-sm font-medium text-zinc-400 mb-1">Phone Number</label>
                                 <input
                                     type="tel"
                                     name="phone"
@@ -369,50 +369,50 @@ export default function EditProfile() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-400 mb-1">国籍</label>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">Nationality</label>
                                     <select
                                         name="nationality"
                                         value={formData.nationality}
                                         onChange={handleChange}
                                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none"
                                     >
-                                        <option value="">選択してください</option>
-                                        <option value="ミャンマー">ミャンマー</option>
-                                        <option value="日本">日本</option>
-                                        <option value="韓国">韓国</option>
-                                        <option value="中国">中国</option>
-                                        <option value="その他">その他</option>
+                                        <option value="">Select</option>
+                                        <option value="Myanmar">Myanmar</option>
+                                        <option value="Japan">Japan</option>
+                                        <option value="Korea">Korea</option>
+                                        <option value="China">China</option>
+                                        <option value="Other">Other</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-400 mb-1">言語設定</label>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-1">Language Setting</label>
                                     <select
                                         name="language"
                                         value={formData.language}
                                         onChange={handleChange}
                                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 appearance-none"
                                     >
-                                        <option value="">選択してください</option>
-                                        <option value="ミャンマー語">ミャンマー語</option>
-                                        <option value="日本語">日本語</option>
-                                        <option value="英語">英語</option>
-                                        <option value="中国語">中国語</option>
-                                        <option value="その他">その他</option>
+                                        <option value="">Select</option>
+                                        <option value="Myanmar">Myanmar</option>
+                                        <option value="Japanese">Japanese</option>
+                                        <option value="English">English</option>
+                                        <option value="Chinese">Chinese</option>
+                                        <option value="Other">Other</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* 自己紹介 */}
+                    {/* Bio */}
                     <div className="pt-4 border-t border-zinc-800">
-                        <label className="block text-sm font-medium text-zinc-400 mb-1">自己紹介</label>
+                        <label className="block text-sm font-medium text-zinc-400 mb-1">Bio</label>
                         <textarea
                             name="bio"
                             value={formData.bio}
                             onChange={handleChange}
                             rows={5}
-                            placeholder="自己紹介文を入力..."
+                            placeholder="Write something about yourself..."
                             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 resize-none"
                         ></textarea>
                     </div>
@@ -423,9 +423,9 @@ export default function EditProfile() {
             {cropImageSrc && (
                 <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center overscroll-none touch-none">
                     <div className="w-full flex justify-between items-center p-4 absolute top-0 left-0 bg-black/50 z-[101]">
-                        <button onClick={() => setCropImageSrc(null)} className="text-white font-bold p-2">キャンセル</button>
+                        <button onClick={() => setCropImageSrc(null)} className="text-white font-bold p-2">Cancel</button>
                         <button onClick={handleCropComplete} disabled={saving} className="text-pink-500 font-bold p-2">
-                            {saving ? '保存中...' : '決定'}
+                            {saving ? 'Saving...' : 'Done'}
                         </button>
                     </div>
 
@@ -456,7 +456,7 @@ export default function EditProfile() {
                             alt="Crop Preview"
                             draggable="false"
                         />
-                        {/* グリッドガイド */}
+                        {/* Grid Guide */}
                         <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3">
                             <div className="border border-white/20"></div><div className="border border-white/20"></div><div className="border border-white/20"></div>
                             <div className="border border-white/20"></div><div className="border border-white/20"></div><div className="border border-white/20"></div>

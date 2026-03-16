@@ -12,10 +12,10 @@ export default function IndexPage() {
         {/* ロゴ・タイトルエリア */}
         <div className="mb-12 text-center">
           <div className="w-24 h-24 mx-auto flex items-center justify-center mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
-            <img src="/logoDN.svg" alt="DanceNight Logo" className="w-full h-full object-contain" />
+            <img src="/logoDN.svg" alt="Dance Together Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 mb-3 tracking-tight">
-            DanceNight
+            Dance Together
           </h1>
           <p className="text-zinc-400 text-sm font-medium tracking-wide">
             ミャンマー最大のナイトライフプラットフォーム
