@@ -227,6 +227,12 @@ export default function SalesManagement() {
                             else if (t.includes('massage')) cat = 'Massage';
                             else if (t.includes('restaurant')) cat = 'RESTAURANT';
 
+                            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+                            const photoReference = details.photos?.[0]?.photo_reference;
+                            const photoUrl = photoReference 
+                                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoReference}&key=${apiKey}`
+                                : null;
+
                             resolve({
                                 name: details.name,
                                 address: details.formatted_address,
@@ -235,7 +241,7 @@ export default function SalesManagement() {
                                 category: cat,
                                 google_place_id: details.place_id,
                                 rating: details.rating,
-                                photo_url: details.photos?.[0]?.getUrl({ maxWidth: 400 }) || null
+                                photo_url: photoUrl
                             });
                         } else {
                             resolve(null); // Skip if details fail
@@ -303,7 +309,10 @@ export default function SalesManagement() {
             website: result.website || '',
             google_place_id: result.google_place_id,
             status: 'Prospect',
-            metadata: { photo_url: result.photo_url }
+            metadata: { 
+                photo_url: result.photo_url,
+                imported_at: new Date().toISOString()
+            }
         }]);
 
         if (error) {
@@ -412,9 +421,9 @@ export default function SalesManagement() {
                                         <tr key={lead.id} className="group hover:bg-white/[0.02] transition-colors">
                                             <td className="px-8 py-5">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex-shrink-0 overflow-hidden border border-white/5">
+                                                    <div className="w-12 h-12 rounded-2xl bg-black flex-shrink-0 overflow-hidden border border-white/5">
                                                         {lead.metadata?.photo_url ? (
-                                                            <img src={lead.metadata.photo_url} alt={lead.name} className="w-full h-full object-cover" />
+                                                            <img src={lead.metadata.photo_url} alt={lead.name} className="w-full h-full object-contain" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-zinc-700 bg-zinc-900">
                                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -549,9 +558,9 @@ export default function SalesManagement() {
                                 {extractedResults.map((res, i) => (
                                     <div key={i} className="p-4 bg-zinc-900/40 border border-white/10 rounded-[2rem] flex items-center gap-4 hover:border-pink-500/30 transition-all group overflow-hidden">
                                         {/* Photo Thumbnail */}
-                                        <div className="w-20 h-20 rounded-2xl bg-zinc-800 flex-shrink-0 overflow-hidden border border-white/5">
+                                        <div className="w-20 h-20 rounded-2xl bg-black flex-shrink-0 overflow-hidden border border-white/5">
                                             {res.photo_url ? (
-                                                <img src={res.photo_url} alt={res.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <img src={res.photo_url} alt={res.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-zinc-700">
                                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>

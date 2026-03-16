@@ -474,6 +474,7 @@ function HomeFeedContent() {
         const handleFirstInteraction = () => {
             if (!hasInteracted) {
                 setHasInteracted(true);
+                setIsMuted(false); // Enable sound globally on first interaction
                 forcePlayActivePost();
             }
             window.removeEventListener('touchstart', handleFirstInteraction);
@@ -519,21 +520,23 @@ function HomeFeedContent() {
                                         win.postMessage(JSON.stringify({ method: 'pause' }), '*');
                                         win.postMessage('pause', '*');
                                     }
-                                    
-                                    if (!hasInteracted || isMuted) {
+                                     if (!hasInteracted || isMuted) {
                                         win.postMessage(JSON.stringify({ method: 'mute' }), '*');
                                         win.postMessage('mute', '*');
                                     } else {
                                         win.postMessage(JSON.stringify({ method: 'unmute' }), '*');
                                         win.postMessage('unmute', '*');
-                                        win.postMessage(JSON.stringify({ method: 'setVolume', value: volume * 100 }), '*');
+                                        win.postMessage(JSON.stringify({ method: 'setVolume', value: Math.round(volume * 100) }), '*');
+                                        // Extra unmuting triggers for various Bunny player versions
+                                        win.postMessage(JSON.stringify({ event: 'unmute' }), '*');
+                                        win.postMessage('unmute', '*');
                                     }
                                 };
                                 
                                 sendPlay();
-                                // Reduced timeouts for better response
-                                setTimeout(sendPlay, 300);
-                                setTimeout(sendPlay, 800);
+                                setTimeout(sendPlay, 200); // Faster subsequent triggers
+                                setTimeout(sendPlay, 600);
+                                setTimeout(sendPlay, 1200);
                             } catch (e) {
                                 console.warn("Iframe interaction error:", e);
                             }
