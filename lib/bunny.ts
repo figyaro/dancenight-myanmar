@@ -145,10 +145,13 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     
     if (!videoId) return url;
     
-    const libraryIdFallback = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+    if (!libraryId) {
+        libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+    }
+
     // Use the official CDN hostname provided by the user
-    // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
-    return `https://dancetgt.b-cdn.net/${videoId}/play_720p.mp4`;
+    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/play_720p.mp4
+    return `https://dancetgt.b-cdn.net/${libraryId}/${videoId}/play_720p.mp4`;
 }
 
 /**
@@ -182,11 +185,15 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
         if (guidMatch) videoId = guidMatch[1];
     }
     
-    const libraryIdFallback = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+    if (!libraryId) {
+        libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
+    }
+
     if (!videoId) return url;
     
     // Always use the official CDN hostname provided by the user
-    return `https://dancetgt.b-cdn.net/${videoId}/thumbnail.jpg`;
+    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/thumbnail.jpg
+    return `https://dancetgt.b-cdn.net/${libraryId}/${videoId}/thumbnail.jpg`;
 }
 
 /**
