@@ -163,6 +163,36 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
 }
 
 /**
+ * Transforms a Bunny Stream player URL into a direct HLS video URL (.m3u8)
+ * Format: https://{pullzone}.b-cdn.net/{videoId}/playlist.m3u8
+ */
+export function getBunnyStreamHLSUrl(url: string | null): string | null {
+    if (!url || !isBunnyStream(url)) return url;
+    
+    // 1. Extract video ID
+    let videoId = '';
+    const playerMatch = url.match(/\/play\/(\d+)\/([a-z0-9-]+)/i);
+    const libraryMatch = url.match(/\/library\/(\d+)\/videos\/([a-z0-9-]+)/i);
+    const idOnlyMatch = url.match(/^([a-z0-9-]{36})$/i);
+
+    if (playerMatch) {
+        videoId = playerMatch[2];
+    } else if (libraryMatch) {
+        videoId = libraryMatch[2];
+    } else if (idOnlyMatch) {
+        videoId = idOnlyMatch[1];
+    } else {
+        const guidMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
+        if (guidMatch) videoId = guidMatch[1];
+    }
+    
+    if (!videoId) return url;
+    
+    // Format for dedicated pull zone HLS: https://{pullzone}.b-cdn.net/{videoId}/playlist.m3u8
+    return `https://${STREAM_CDN_HOSTNAME}/${videoId}/playlist.m3u8`;
+}
+
+/**
  * Transforms a Bunny Stream player URL into a direct thumbnail URL
  * Format: https://{pullzone}.b-cdn.net/{videoId}/thumbnail.jpg
  */

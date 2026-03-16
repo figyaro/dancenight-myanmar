@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../../lib/supabase';
-import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo } from '../../lib/bunny';
+import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamHLSUrl } from '../../lib/bunny';
+import VideoPlayer from '../components/VideoPlayer';
 
 interface Post {
     id: string;
@@ -234,21 +235,14 @@ export default function Discover() {
                                         </div>
                                     ) : isVideo(post.main_image_url) ? (
                                         <div className="relative w-full h-full video-container">
-                                            <video 
-                                                src={post.main_image_url} 
+                                            <VideoPlayer
+                                                url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
+                                                poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
                                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                                muted
-                                                playsInline
-                                                // @ts-ignore
-                                                webkit-playsinline="true"
-                                                onMouseEnter={(e) => e.currentTarget.play()}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.pause();
-                                                    e.currentTarget.currentTime = 0;
-                                                }}
-                                                onTouchStart={(e) => {
-                                                    e.currentTarget.play();
-                                                }}
+                                                isPlaying={false}
+                                                autoPlay={false}
+                                                loop={true}
+                                                objectFit="cover"
                                             />
                                             <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>

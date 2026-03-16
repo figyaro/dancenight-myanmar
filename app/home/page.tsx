@@ -11,7 +11,8 @@ import { t } from '../../lib/i18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import LoadingScreen from '../components/LoadingScreen';
 import VolumeDial from '../components/VolumeDial';
-import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId, isVideo } from '../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId, isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamHLSUrl } from '../../lib/bunny';
+import VideoPlayer from '../components/VideoPlayer';
 
 interface UserProfile {
     nickname: string;
@@ -731,16 +732,17 @@ function HomeFeedContent() {
                                 </div>
                             ) : isVideo(post.main_image_url) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
-                                    <video 
-                                        className="w-full h-full object-cover"
-                                        playsInline
-                                        muted={true}
-                                        loop={true}
+                                    <VideoPlayer
+                                        url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
+                                        poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
+                                        className="w-full h-full"
+                                        isPlaying={activePostId === post.id && isPlaying}
+                                        isMuted={!hasInteracted || isMuted}
+                                        volume={volume}
                                         autoPlay={true}
-                                        preload="auto"
-                                    >
-                                        <source src={post.main_image_url} type={post.main_image_url.toLowerCase().endsWith('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'} />
-                                    </video>
+                                        loop={true}
+                                        objectFit="cover"
+                                    />
                                     
                                     {/* Mobile Unmute Prompt */}
                                     {!hasInteracted && activePostId === post.id && (

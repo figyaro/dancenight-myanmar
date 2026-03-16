@@ -9,7 +9,8 @@ import { supabase } from '../../../lib/supabase';
 import { getEffectiveUserId } from '../../../lib/auth-util';
 import { t } from '../../../lib/i18n';
 import LoadingScreen from '../../components/LoadingScreen';
-import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl } from '../../../lib/bunny';
+import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamHLSUrl } from '../../../lib/bunny';
+import VideoPlayer from '../../components/VideoPlayer';
 
 export default function PublicProfile() {
     const { id } = useParams();
@@ -423,15 +424,16 @@ export default function PublicProfile() {
                                                 )
                                             ) : isVideo(post.main_image_url) ? (
                                                 <div className="w-full h-full relative">
-                                                    <video 
-                                                        src={post.main_image_url} 
-                                                        className="w-full h-full object-cover"
-                                                        muted
-                                                        playsInline
-                                                        // @ts-ignore
-                                                        webkit-playsinline="true"
+                                                    <VideoPlayer
+                                                        url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
+                                                        poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
+                                                        className="w-full h-full"
+                                                        isPlaying={isPlaying}
+                                                        isMuted={true}
                                                         autoPlay={isPlaying}
+                                                        loop={true}
                                                         onEnded={() => setPlayingVideoId(null)}
+                                                        objectFit="cover"
                                                     />
                                                     {!isPlaying && (
                                                         <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
