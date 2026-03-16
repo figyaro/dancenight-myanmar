@@ -128,3 +128,67 @@ body {
 .animate-fade-exit {
   animation: fade-out 0.3s ease-in forwards;
 }
+
+/* --- Liquid Glass UI/UX System --- */
+
+/* Base liquid glass container */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 1.5rem; /* rounded-3xl equivalent */
+  overflow: hidden;
+  position: relative;
+}
+
+/* Subtle internal glare/reflection */
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Base interaction glow class */
+.edge-glow-effect {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The glowing border gradient via mask composite */
+.edge-glow-effect::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  border: 2px solid transparent;
+  border-radius: inherit; /* inherit from parent container */
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  background: linear-gradient(45deg, #ec4899, #8b5cf6, #3b82f6) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: 20;
+}
+
+/* Active and Hover States */
+.edge-glow-effect:active::after,
+.group:active .edge-glow-effect::after {
+  opacity: 1;
+  box-shadow: inset 0 0 20px rgba(236, 72, 153, 0.6), 0 0 20px rgba(236, 72, 153, 0.6);
+}
+
+/* For non-touch devices, add a subtle hover */
+@media (hover: hover) {
+  .edge-glow-effect:hover::after,
+  .group:hover .edge-glow-effect::after {
+    opacity: 0.6;
+    box-shadow: inset 0 0 10px rgba(139, 92, 246, 0.4);
+  }
+}

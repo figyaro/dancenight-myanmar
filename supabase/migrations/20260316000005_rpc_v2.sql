@@ -1,6 +1,8 @@
 -- Create a new version of the recommendation function to avoid any ambiguity issues
 -- Renames parameter to p_viewer_id and prefix output columns with out_
 
+DROP FUNCTION IF EXISTS public.get_recommended_posts_v2(UUID);
+
 CREATE OR REPLACE FUNCTION public.get_recommended_posts_v2(p_viewer_id UUID DEFAULT NULL)
 RETURNS TABLE (
     out_id UUID,

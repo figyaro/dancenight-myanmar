@@ -11,7 +11,7 @@ import { t } from '../../lib/i18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import LoadingScreen from '../components/LoadingScreen';
 import VolumeDial from '../components/VolumeDial';
-import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId } from '../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId, isVideo } from '../../lib/bunny';
 
 interface UserProfile {
     nickname: string;
@@ -126,11 +126,30 @@ function HomeFeedContent() {
                     return uuidPattern.test(id);
                 };
 
-                const { data, error } = await supabase
-                    .rpc('get_recommended_posts_v2', { p_viewer_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
+                const targetUserId = searchParams.get('userId');
+                let data, error;
+
+                if (targetUserId && isValidUUID(targetUserId)) {
+                    // Fetch all posts for a specific user
+                    const { data: userData, error: userError } = await supabase
+                        .from('posts')
+                        .select('*, users(nickname, avatar_url, role)')
+                        .eq('user_id', targetUserId)
+                        .order('created_at', { ascending: false });
+                    
+                    data = userData;
+                    error = userError;
+                } else {
+                    // Fetch recommended posts using RPC
+                    const { data: recData, error: recError } = await supabase
+                        .rpc('get_recommended_posts_v2', { p_viewer_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
+                    
+                    data = recData;
+                    error = recError;
+                }
 
                 if (error) {
-                    console.warn("RPC failed, falling back to standard query", error);
+                    console.warn("Fetch failed, falling back to standard query", error);
                     // Fallback
                     const { data: fallbackData, error: fallbackError } = await supabase
                         .from('posts')
@@ -141,20 +160,20 @@ function HomeFeedContent() {
                     setPosts(fallbackData as Post[]);
                 } else if (data) {
                     const mappedData = data.map((item: any) => ({
-                        id: item.out_id,
-                        user_id: item.out_user_id,
-                        area: item.out_area,
-                        name: item.out_name,
-                        title: item.out_title,
-                        price_per_hour: item.out_price_per_hour,
-                        currency: item.out_currency,
-                        rating: item.out_rating,
-                        main_image_url: item.out_main_image_url,
-                        location_name: item.out_location_name,
-                        shop_id: item.out_shop_id,
-                        created_at: item.out_created_at,
-                        users: item.out_users,
-                        score: item.out_score
+                        id: item.out_id || item.id,
+                        user_id: item.out_user_id || item.user_id,
+                        area: item.out_area || item.area,
+                        name: item.out_name || item.name,
+                        title: item.out_title || item.title,
+                        price_per_hour: item.out_price_per_hour || item.price_per_hour,
+                        currency: item.out_currency || item.currency,
+                        rating: item.out_rating !== undefined ? item.out_rating : item.rating,
+                        main_image_url: item.out_main_image_url || item.main_image_url,
+                        location_name: item.out_location_name || item.location_name,
+                        shop_id: item.out_shop_id || item.shop_id,
+                        created_at: item.out_created_at || item.created_at,
+                        users: item.out_users || item.users,
+                        score: item.out_score || item.score
                     }));
                     setPosts(mappedData as Post[]);
                 }
@@ -198,7 +217,7 @@ function HomeFeedContent() {
         };
 
         fetchInitialData();
-    }, []);
+    }, [searchParams]);
 
     // Handle scroll to specific post if postId is provided
     useEffect(() => {
@@ -206,6 +225,8 @@ function HomeFeedContent() {
             const targetElement = postRefs.current[postIdParam];
             if (targetElement && scrollContainerRef.current) {
                 targetElement.scrollIntoView({ behavior: 'auto' });
+                // Immediately set as active to trigger playback logic
+                setActivePostId(postIdParam);
             }
         }
     }, [loading, posts, postIdParam]);
@@ -477,7 +498,7 @@ function HomeFeedContent() {
         if (target.closest('button') || target.closest('a')) return;
 
         const currentPost = posts.find(p => p.id === activePostId);
-        const isPostVideo = currentPost && currentPost.main_image_url && (isBunnyStream(currentPost.main_image_url) || currentPost.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/));
+        const isPostVideo = currentPost && isVideo(currentPost.main_image_url);
         if (!isPostVideo) return; // Ignore taps on images
 
         if (!hasInteracted) setHasInteracted(true);
@@ -606,7 +627,7 @@ function HomeFeedContent() {
                                         </div>
                                     )}
                                 </div>
-                            ) : post.main_image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                            ) : isVideo(post.main_image_url) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
                                     <video 
                                         className="w-full h-full object-cover"
@@ -616,7 +637,7 @@ function HomeFeedContent() {
                                         autoPlay
                                         preload="auto"
                                     >
-                                        <source src={post.main_image_url} type="video/mp4" />
+                                        <source src={post.main_image_url} type={post.main_image_url.toLowerCase().endsWith('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'} />
                                     </video>
                                 </div>
                             ) : (

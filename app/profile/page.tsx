@@ -83,9 +83,17 @@ export default function Profile() {
     }
 
     return (
-        <div className="bg-black min-h-screen text-white">
-            <TopNav />
-            <main className="pt-20 pb-24 px-4 max-w-md mx-auto">
+        <div className="bg-black min-h-[100dvh] text-white relative">
+            {/* Ambient Background Orbs */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-pink-500/20 blur-[120px] mix-blend-screen" />
+                <div className="absolute top-[30%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/20 blur-[100px] mix-blend-screen" />
+                <div className="absolute bottom-[-20%] left-[20%] w-[70%] h-[70%] rounded-full bg-purple-500/20 blur-[120px] mix-blend-screen" />
+            </div>
+
+            <div className="relative z-10">
+                <TopNav />
+                <main className="pt-20 pb-24 px-4 max-w-md mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">{t('profile', profile?.language)}</h1>
                     <button onClick={handleLogout} className="text-zinc-500 text-sm hover:text-white transition-colors">
@@ -93,11 +101,11 @@ export default function Profile() {
                     </button>
                 </div>
 
-                {/* プロフィール情報 */}
-                <div className="flex flex-col items-center mb-6 text-center">
+                {/* プロフィール情報 - Liquid Glass Card */}
+                <div className="liquid-glass p-6 flex flex-col items-center mb-6 text-center transform transition-all duration-500 hover:scale-[1.01]">
                     {/* アバター */}
-                    <div className="relative mb-4">
-                        <div className="w-24 h-24 rounded-full bg-zinc-800 overflow-hidden border-2 border-zinc-700">
+                    <div className="relative mb-5 group cursor-pointer inline-block">
+                        <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/20 shadow-2xl relative z-20">
                             {profile?.avatar_url ? (
                                 <img
                                     src={profile.avatar_url}
@@ -112,6 +120,7 @@ export default function Profile() {
                                     </svg>
                                 </div>
                             )}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-transparent pointer-events-none" />
                         </div>
                         
                         {/* Status Icon (Mind Icon) */}
@@ -121,29 +130,28 @@ export default function Profile() {
                             </div>
                         )}
 
-                        {/* Edit Icon Overlay */}
                         <Link 
                             href="/profile/edit"
-                            className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-pink-600 border-2 border-black flex items-center justify-center text-white shadow-xl hover:bg-pink-500 transition-colors z-20"
+                            className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-xl hover:bg-white/10 transition-all z-30 edge-glow-effect"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                             </svg>
                         </Link>
                     </div>
 
-                    <h2 className="text-2xl font-bold">{profile?.nickname || profile?.name || 'Guest'}</h2>
+                    <h2 className="text-2xl font-black tracking-tight drop-shadow-md">{profile?.nickname || profile?.name || 'Guest'}</h2>
 
                     {profile?.short_bio && (
-                        <p className="text-pink-400 font-medium mt-1">{profile.short_bio}</p>
+                        <p className="text-zinc-300 font-medium mt-2 leading-relaxed text-sm opacity-90 mix-blend-luminosity">{profile.short_bio}</p>
                     )}
                 </div>
 
                 {/* 基本情報 */}
-                <div className="bg-zinc-900 rounded-xl p-4 mb-6">
-                    <h3 className="text-sm font-bold text-zinc-400 border-b border-zinc-800 pb-2 mb-3">{t('bio', profile?.language)}</h3>
-                    <div className="space-y-3 text-sm">
+                <div className="liquid-glass p-5 mb-6">
+                    <h3 className="text-[10px] font-black text-white/50 tracking-widest uppercase border-b border-white/10 pb-3 mb-4">{t('bio', profile?.language)}</h3>
+                    <div className="space-y-4 text-sm font-medium">
                         {profile?.birth_date && (
                             <div className="flex items-center justify-between">
                                 <span className="text-zinc-500">{t('birth_date', profile?.language)}</span>
@@ -201,10 +209,10 @@ export default function Profile() {
 
                 {/* ダンサー条件のサマリー表示 (Dancerのみ) */}
                 {profile?.role === 'dancer' && dancerData && (
-                    <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4 mb-6">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-black tracking-widest text-zinc-500 uppercase">My Conditions</h3>
-                            <span className="text-[10px] bg-pink-500/10 text-pink-500 px-2 py-0.5 rounded font-bold">Active</span>
+                    <div className="liquid-glass p-5 mb-6">
+                        <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                            <h3 className="text-[10px] font-black tracking-widest text-white/50 uppercase">My Conditions</h3>
+                            <span className="text-[10px] bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded font-bold border border-pink-500/30">Active</span>
                         </div>
                         <div className="space-y-3">
                             <div className="flex flex-wrap gap-1.5">
@@ -214,13 +222,13 @@ export default function Profile() {
                                     </span>
                                 ))}
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-2 gap-4 text-sm font-medium">
                                 <div>
-                                    <p className="text-zinc-500 mb-0.5">Price</p>
+                                    <p className="text-[10px] font-black text-white/40 uppercase mb-1">Price</p>
                                     <p className="font-bold text-pink-400">{dancerData.price_info || 'Not set'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-zinc-500 mb-0.5">Availability</p>
+                                    <p className="text-[10px] font-black text-white/40 uppercase mb-1">Availability</p>
                                     <p className="font-bold">{dancerData.availability_info || 'Not set'}</p>
                                 </div>
                             </div>
@@ -245,19 +253,11 @@ export default function Profile() {
                                     <div 
                                         key={post.id} 
                                         onClick={() => {
-                                            if (isPostVideo) {
-                                                if (isPlaying) {
-                                                    router.push(`/home?postId=${post.id}`);
-                                                } else {
-                                                    setPlayingVideoId(post.id);
-                                                }
-                                            } else {
-                                                router.push(`/home?postId=${post.id}`);
-                                            }
+                                            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
                                         }}
-                                        className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
+                                        className="aspect-[9/16] liquid-glass !rounded-xl !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform"
                                     >
-                                        <div className="absolute inset-0 z-20 pointer-events-auto" /> {/* Click interceptor overlay */}
+                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow */}
                                         {post.main_image_url ? (
                                             isBunnyStream(post.main_image_url) ? (
                                                 isPlaying ? (
@@ -314,16 +314,17 @@ export default function Profile() {
                             })}
                         </div>
                     ) : (
-                        <div className="bg-zinc-900/30 border border-dashed border-white/5 rounded-3xl py-12 text-center">
+                        <div className="liquid-glass py-12 text-center">
                             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">📸</div>
-                            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
-                            <Link href="/posts/new" className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block hover:underline">
+                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                            <Link href="/posts/new" className="text-pink-500 text-[9px] font-black uppercase tracking-[0.2em] mt-3 inline-block hover:text-pink-400 transition-colors">
                                 Share your first update
                             </Link>
                         </div>
                     )}
                 </div>
             </main>
+            </div>
             <BottomNav />
         </div>
     );

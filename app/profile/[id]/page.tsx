@@ -247,11 +247,11 @@ export default function PublicProfile() {
 
     if (!profile) {
         return (
-            <div className="bg-black min-h-screen text-white flex flex-col items-center justify-center p-4">
-                <p className="text-zinc-500 mb-4">User not found</p>
+            <div className="bg-black min-h-[100dvh] text-white flex flex-col items-center justify-center p-4">
+                <p className="text-zinc-500 mb-4 font-black tracking-widest uppercase">User not found</p>
                 <button
                     onClick={() => router.back()}
-                    className="px-6 py-2 bg-zinc-800 rounded-lg text-sm font-bold"
+                    className="px-6 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-sm font-black transition-all active:scale-95 shadow-lg border border-white/10"
                 >
                     Go Back
                 </button>
@@ -260,20 +260,31 @@ export default function PublicProfile() {
     }
 
     return (
-        <div className="bg-black min-h-screen text-white">
-            <TopNav />
-            <main className="pt-20 pb-24 px-4 max-w-md mx-auto">
-                <button
-                    onClick={() => router.back()}
-                    className="mb-6 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                    <span className="text-sm">Back</span>
-                </button>
+        <div className="bg-black min-h-[100dvh] text-white relative">
+            {/* Ambient Background Orbs */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-pink-500/20 blur-[120px] mix-blend-screen" />
+                <div className="absolute top-[30%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/20 blur-[100px] mix-blend-screen" />
+                <div className="absolute bottom-[-20%] left-[20%] w-[70%] h-[70%] rounded-full bg-purple-500/20 blur-[120px] mix-blend-screen" />
+            </div>
 
-                <div className="flex flex-col items-center mb-8 text-center">
+            <div className="relative z-10">
+                <TopNav />
+                <main className="pt-20 pb-24 px-4 max-w-md mx-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <button
+                            onClick={() => router.back()}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                        </button>
+                        <h1 className="text-sm font-black tracking-widest uppercase text-white/50">{profile?.nickname || 'Profile'}</h1>
+                        <div className="w-10"></div> {/* flex-between用スペーサー */}
+                    </div>
+
+                    <div className="liquid-glass p-6 flex flex-col items-center mb-8 text-center transform transition-all duration-500 hover:scale-[1.01]">
                     <div className="relative mb-4">
                         <div className="w-28 h-28 rounded-full bg-zinc-800 overflow-hidden border-2 border-zinc-700 shadow-xl">
                             {profile?.avatar_url ? (
@@ -290,59 +301,63 @@ export default function PublicProfile() {
                                     </svg>
                                 </div>
                             )}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-transparent pointer-events-none" />
                         </div>
                         {profile?.mind_icon && (
-                            <div className="absolute -bottom-1 -right-1 bg-zinc-800 p-2 rounded-full border border-zinc-700 text-xl shadow-lg leading-none">
+                            <div className="absolute -bottom-1 -right-1 bg-zinc-800 p-2 rounded-full border border-zinc-700 text-xl shadow-lg leading-none z-30">
                                 {profile.mind_icon}
                             </div>
                         )}
                     </div>
 
-                    <h2 className="text-3xl font-black mb-1">{profile?.nickname || 'Dancer'}</h2>
+                    <h2 className="text-2xl font-black tracking-tight drop-shadow-md mb-1">{profile?.nickname || 'Dancer'}</h2>
                     {profile?.short_bio && (
-                        <p className="text-pink-400 font-bold tracking-tight text-lg mb-4">{profile.short_bio}</p>
+                        <p className="text-zinc-300 font-medium mt-2 leading-relaxed text-sm opacity-90 mix-blend-luminosity mb-4">{profile.short_bio}</p>
                     )}
 
                     <div className="flex gap-3 w-full max-w-[280px]">
                         <button
                             onClick={handleFollow}
                             disabled={actionLoading || currentUser?.id === id}
-                            className={`flex-1 py-3 rounded-xl font-black text-sm transition-all active:scale-95 shadow-lg border border-white/5 ${isFollowing
-                                ? 'bg-zinc-800 text-zinc-400'
-                                : 'bg-pink-600 text-white shadow-pink-900/20 hover:bg-pink-500'
+                            className={`flex-1 py-3 rounded-[1.25rem] font-black text-xs tracking-widest transition-all active:scale-95 shadow-lg relative overflow-hidden group ${isFollowing
+                                ? 'bg-white/10 text-white/50 border border-white/5'
+                                : 'bg-pink-600 text-white border border-pink-500/50 edge-glow-effect'
                                 }`}
                         >
-                            {actionLoading ? '...' : (isFollowing ? 'FOLLOWING' : 'FOLLOW')}
+                            <span className="relative z-10">{actionLoading ? '...' : (isFollowing ? 'FOLLOWING' : 'FOLLOW')}</span>
                         </button>
                         <button
                             onClick={handleMessage}
                             disabled={actionLoading || currentUser?.id === id}
-                            className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-xl font-black text-sm transition-all active:scale-95 border border-white/5"
+                            className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3 rounded-[1.25rem] font-black text-xs tracking-widest transition-all active:scale-95 border border-white/10 flex items-center justify-center gap-2 edge-glow-effect group"
                         >
-                            MESSAGE
+                            <svg className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                            <span className="relative z-10">MESSAGE</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/5">
-                    <h3 className="text-xs font-black text-zinc-500 tracking-[0.2em] uppercase mb-4">{t('bio', viewerLanguage)}</h3>
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm mb-6">
+                <div className="liquid-glass p-6 mb-6">
+                    <h3 className="text-[10px] font-black text-white/50 tracking-[0.2em] uppercase border-b border-white/10 pb-3 mb-4">{t('bio', viewerLanguage)}</h3>
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm mb-4 font-medium">
                         {profile?.gender && (
-                            <div className="flex flex-col gap-1">
-                                <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">{t('gender', viewerLanguage)}</span>
-                                <span className="font-semibold">{profile.gender}</span>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('gender', viewerLanguage)}</span>
+                                <span>{profile.gender}</span>
                             </div>
                         )}
                         {profile?.nationality && (
-                            <div className="flex flex-col gap-1">
-                                <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">{t('nationality', viewerLanguage)}</span>
-                                <span className="font-semibold">{profile.nationality}</span>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('nationality', viewerLanguage)}</span>
+                                <span>{profile.nationality}</span>
                             </div>
                         )}
                     </div>
                     {profile?.bio && (
-                        <div className="pt-4 border-t border-white/5">
-                            <p className="text-sm text-zinc-300 leading-relaxed italic">"{profile.bio}"</p>
+                        <div className="pt-4 mt-2 border-t border-white/10">
+                            <p className="text-sm text-zinc-300 leading-relaxed italic opacity-90">"{profile.bio}"</p>
                         </div>
                     )}
                 </div>
@@ -385,19 +400,11 @@ export default function PublicProfile() {
                                     <div 
                                         key={post.id} 
                                         onClick={() => {
-                                            if (isPostVideo) {
-                                                if (isPlaying) {
-                                                    router.push(`/home?postId=${post.id}`);
-                                                } else {
-                                                    setPlayingVideoId(post.id);
-                                                }
-                                            } else {
-                                                router.push(`/home?postId=${post.id}`);
-                                            }
+                                            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
                                         }}
-                                        className="aspect-square bg-zinc-900 overflow-hidden relative group cursor-pointer border border-white/5 active:scale-95 transition-transform"
+                                        className="aspect-[9/16] liquid-glass !rounded-[1.25rem] !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform"
                                     >
-                                        <div className="absolute inset-0 z-20 pointer-events-auto" /> {/* Click interceptor overlay */}
+                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow */}
                                         {post.main_image_url ? (
                                             isBunnyStream(post.main_image_url) ? (
                                                 isPlaying ? (
@@ -454,13 +461,14 @@ export default function PublicProfile() {
                             })}
                         </div>
                     ) : (
-                        <div className="bg-zinc-900/30 border border-dashed border-white/5 rounded-3xl py-12 text-center">
+                        <div className="liquid-glass py-12 text-center">
                             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-xl opacity-20">🪩</div>
-                            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
+                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">No posts yet</p>
                         </div>
                     )}
                 </div>
             </main>
+            </div>
             <BottomNav />
         </div>
     );

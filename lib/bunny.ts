@@ -64,7 +64,17 @@ export async function uploadToBunnyStorage(file: Buffer | File, fileName: string
  */
 export function isBunnyStream(url: string | null): boolean {
     if (!url) return false;
-    return url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com');
+    
+    // 1. Check for official Bunny Stream domains
+    if (url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com')) return true;
+    
+    // 2. Check for bare GUID
+    if (/^[a-z0-9-]{36}$/i.test(url)) return true;
+
+    // 3. Check for Bunny CDN domain + GUID pattern (most robust for custom pull zones)
+    // This allows identifying streams even if the library ID is missing from the path
+    const guidPattern = /[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/i;
+    return url.includes('b-cdn.net') && guidPattern.test(url);
 }
 
 /**
@@ -86,13 +96,18 @@ export function extractBunnyVideoId(url: string | null): string | null {
     const guidMatch = url.match(/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/i);
     if (guidMatch) return guidMatch[1];
 
+    // Handle path pattern: pull-zone.b-cdn.net/LIBRARY_ID/VIDEO_ID/...
+    // e.g. https://dancetgt.b-cdn.net/617122/581f44c4-7221-4f11-92b1-5a0256865668/playlist.m3u8
+    const cdnMatch = url.match(/b-cdn\.net\/\d+\/([a-z0-9-]{36})/i);
+    if (cdnMatch) return cdnMatch[1];
+
     return null;
 }
 
 export const isVideo = (url: string | null) => {
     if (!url) return false;
     // Check if it's a direct video link or a Bunny Stream iframe link
-    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null || isBunnyStream(url);
+    return url.toLowerCase().match(/\.(mp4|webm|ogg|mov|m3u8)$/) !== null || isBunnyStream(url);
 };
 
 /**
@@ -130,9 +145,10 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     
     if (!videoId) return url;
     
+    const libraryIdFallback = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
     // Use the official CDN hostname provided by the user
-    // Format: https://vz-dc7bf078-297.b-cdn.net/{videoId}/play_720p.mp4
-    return `https://vz-dc7bf078-297.b-cdn.net/${videoId}/play_720p.mp4`;
+    // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
+    return `https://dancetgt.b-cdn.net/${videoId}/play_720p.mp4`;
 }
 
 /**
@@ -166,10 +182,11 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
         if (guidMatch) videoId = guidMatch[1];
     }
     
+    const libraryIdFallback = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
     if (!videoId) return url;
     
     // Always use the official CDN hostname provided by the user
-    return `https://vz-dc7bf078-297.b-cdn.net/${videoId}/thumbnail.jpg`;
+    return `https://dancetgt.b-cdn.net/${videoId}/thumbnail.jpg`;
 }
 
 /**
@@ -180,7 +197,7 @@ export function getBunnyStreamEmbedUrl(url: string | null, autoplay: boolean = f
     if (!url) return null;
     
     let videoId = '';
-    let libraryId = (process.env.BUNNY_STREAM_LIBRARY_ID || '').toString();
+    let libraryId = (process.env.BUNNY_STREAM_LIBRARY_ID || '617122').toString();
 
     // 1. Extract IDs from various formats
     // Standard player: https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
