@@ -130,17 +130,9 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     
     if (!videoId) return url;
     
-    // Use PULL_ZONE if available
-    // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
-    if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
-        const base = PULL_ZONE.replace(/\/$/, '');
-        // We try play_720p.mp4 first as it is the standard for most modern Bunny libraries
-        return `${base}/${videoId}/play_720p.mp4`;
-    }
-    
-    // If no pull zone, we can't easily construct a direct MP4 link without the pull zone hostname.
-    // Return the original URL (likely an iframe or library URL)
-    return url;
+    // Use the official CDN hostname provided by the user
+    // Format: https://vz-dc7bf078-297.b-cdn.net/{videoId}/play_720p.mp4
+    return `https://vz-dc7bf078-297.b-cdn.net/${videoId}/play_720p.mp4`;
 }
 
 /**
@@ -176,17 +168,8 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     
     if (!videoId) return url;
     
-    // Always prefer the native robust Bunny Stream host to bypass broken custom DNS
-    if (libraryId) {
-        return `https://vz-${libraryId}.b-cdn.net/${videoId}/thumbnail.jpg`;
-    }
-
-    if (PULL_ZONE && !PULL_ZONE.includes('undefined')) {
-        const base = PULL_ZONE.replace(/\/$/, '');
-        return `${base}/${videoId}/thumbnail.jpg`;
-    }
-    
-    return url;
+    // Always use the official CDN hostname provided by the user
+    return `https://vz-dc7bf078-297.b-cdn.net/${videoId}/thumbnail.jpg`;
 }
 
 /**
