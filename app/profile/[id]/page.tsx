@@ -14,7 +14,7 @@ import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbed
 export default function PublicProfile() {
     const { id } = useParams();
     const [profile, setProfile] = useState<any>(null);
-    const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0, likes: 0 });
+    const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0, likes: 0, impressions: 0 });
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -64,22 +64,21 @@ export default function PublicProfile() {
                 if (data) setProfile(data);
 
                 // Fetch Stats and Posts
-                const [postsRes, followersRes, followingRes, likesRes] = await Promise.all([
+                const [postsRes, statsData] = await Promise.all([
                     supabase.from('posts').select('*').eq('user_id', id).order('created_at', { ascending: false }),
-                    supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', id),
-                    supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('follower_id', id),
-                    supabase.from('likes').select('post_id', { count: 'exact', head: true }).in('post_id',
-                        (await supabase.from('posts').select('id').eq('user_id', id)).data?.map(p => p.id) || []
-                    )
+                    supabase.rpc('get_user_comprehensive_stats', { p_user_id: id })
                 ]);
 
                 setUserPosts(postsRes.data || []);
-                setStats({
-                    posts: postsRes.data?.length || 0,
-                    followers: followersRes.count || 0,
-                    following: followingRes.count || 0,
-                    likes: likesRes.count || 0
-                });
+                if (statsData.data) {
+                    setStats({
+                        posts: statsData.data.posts_count || 0,
+                        followers: statsData.data.followers_count || 0,
+                        following: statsData.data.following_count || 0,
+                        likes: statsData.data.likes_count || 0,
+                        impressions: statsData.data.impressions_count || 0
+                    });
+                }
 
             } catch (err) {
                 console.error('Error fetching public profile:', err);
@@ -389,25 +388,23 @@ export default function PublicProfile() {
                     )}
                 </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide no-scrollbar">
-                    <div className="flex-shrink-0 bg-zinc-900 px-4 py-3 rounded-xl border border-white/5 text-center min-w-[90px]">
-                        <p className="text-zinc-500 text-[10px] font-black uppercase mb-1">Posts</p>
-                        <p className="text-xl font-black">{stats.posts}</p>
+                <div className="grid grid-cols-4 gap-2 mb-8">
+                    <div className="liquid-glass p-3 flex flex-col items-center justify-center min-w-0">
+                        <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-1 truncate w-full text-center">Followers</span>
+                        <span className="text-lg font-black tracking-tight">{(stats as any).followers > 999 ? ((stats as any).followers / 1000).toFixed(1) + 'K' : (stats as any).followers}</span>
                     </div>
-                    <div className="flex-shrink-0 bg-zinc-900 px-4 py-3 rounded-xl border border-white/5 text-center min-w-[90px]">
-                        <p className="text-zinc-500 text-[10px] font-black uppercase mb-1">Followers</p>
-                        <p className="text-xl font-black">{stats.followers > 999 ? (stats.followers / 1000).toFixed(1) + 'K' : stats.followers}</p>
+                    <div className="liquid-glass p-3 flex flex-col items-center justify-center min-w-0">
+                        <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-1 truncate w-full text-center">Following</span>
+                        <span className="text-lg font-black tracking-tight">{(stats as any).following > 999 ? ((stats as any).following / 1000).toFixed(1) + 'K' : (stats as any).following}</span>
                     </div>
-                    <div className="flex-shrink-0 bg-zinc-900 px-4 py-3 rounded-xl border border-white/5 text-center min-w-[90px]">
-                        <p className="text-zinc-500 text-[10px] font-black uppercase mb-1">Following</p>
-                        <p className="text-xl font-black">{stats.following > 999 ? (stats.following / 1000).toFixed(1) + 'K' : stats.following}</p>
+                    <div className="liquid-glass p-3 flex flex-col items-center justify-center min-w-0">
+                        <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-1 truncate w-full text-center">Likes</span>
+                        <span className="text-lg font-black tracking-tight">{(stats as any).likes > 999 ? ((stats as any).likes / 1000).toFixed(1) + 'K' : (stats as any).likes}</span>
                     </div>
-                    <div className="flex-shrink-0 bg-zinc-900 px-4 py-3 rounded-xl border border-white/5 text-center min-w-[90px]">
-                        <p className="text-zinc-500 text-[10px] font-black uppercase mb-1">Likes</p>
-                        <p className="text-xl font-black">{stats.likes > 999 ? (stats.likes / 1000).toFixed(1) + 'K' : stats.likes}</p>
+                    <div className="liquid-glass p-3 flex flex-col items-center justify-center min-w-0 border-pink-500/20 shadow-[0_0_20px_rgba(236,72,153,0.1)]">
+                        <span className="text-[8px] font-black text-pink-500/60 uppercase tracking-[0.2em] mb-1 truncate w-full text-center">Views</span>
+                        <span className="text-lg font-black tracking-tight text-white">{(stats as any).impressions > 999 ? ((stats as any).impressions / 1000).toFixed(1) + 'K' : (stats as any).impressions || 0}</span>
                     </div>
-                    {/* Spacer to prevent cutoff */}
-                    <div className="flex-shrink-0 w-8" />
                 </div>
 
                 {/* Media Grid Section (User Posts) */}

@@ -35,32 +35,19 @@ export default function UserManagement() {
             setCurrentUser(profile);
         }
 
-        // Fetch users and their counts/stats in aggregate
-        const { data: usersData, error } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
+        // Use the unified RPC for user list with stats
+        const { data: usersData, error } = await supabase.rpc('get_users_with_stats');
         
         if (error) {
-            console.error('Error fetching users:', error);
+            console.error('Error fetching users with stats:', error);
+            // Fallback to basic fetch if RPC fails
+            const { data: fallbackData } = await supabase
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false });
+            setUsers(fallbackData || []);
         } else {
-            // Batch fetch related stats to avoid individual RPCs for each user in list
-            const { data: postCounts } = await supabase.rpc('get_user_post_counts');
-            const { data: followStats } = await supabase.rpc('get_user_follow_stats');
-            
-            const enrichedUsers = (usersData || []).map(user => {
-                const pc = postCounts?.find((p: any) => p.user_id === user.id);
-                const fs = followStats?.find((f: any) => f.user_id === user.id);
-                return {
-                    ...user,
-                    post_count: pc?.count || 0,
-                    followers_count: fs?.followers_count || 0,
-                    following_count: fs?.following_count || 0,
-                    // Note: last_login is typically in auth.users, we might not have it in public.users
-                    // unless we specifically sync it. We'll show NA or updated_at if missing.
-                };
-            });
-            setUsers(enrichedUsers);
+            setUsers(usersData || []);
         }
         setLoading(false);
     };
@@ -368,24 +355,24 @@ export default function UserManagement() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                     <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Posts</span>
-                                    <span className="text-xl font-black text-pink-500">{selectedUser.stats?.posts_count || 0}</span>
+                                    <span className="text-xl font-black text-pink-500">{selectedUser.post_count || 0}</span>
                                 </div>
                                 <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                     <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total Likes</span>
-                                    <span className="text-xl font-black text-rose-500">{selectedUser.stats?.likes_count || 0}</span>
+                                    <span className="text-xl font-black text-rose-500">{selectedUser.likes_count || 0}</span>
                                 </div>
                                 <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                     <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Impressions</span>
-                                    <span className="text-xl font-black text-white">{selectedUser.stats?.impressions_count || 0}</span>
+                                    <span className="text-xl font-black text-white">{selectedUser.impressions_count || 0}</span>
                                 </div>
                                 <div className="col-span-2 grid grid-cols-2 gap-4 mt-2">
                                     <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                         <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Following</span>
-                                        <span className="text-xl font-black text-blue-400">{selectedUser.stats?.following_count || 0}</span>
+                                        <span className="text-xl font-black text-blue-400">{selectedUser.following_count || 0}</span>
                                     </div>
                                     <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                         <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Followers</span>
-                                        <span className="text-xl font-black text-purple-400">{selectedUser.stats?.followers_count || 0}</span>
+                                        <span className="text-xl font-black text-purple-400">{selectedUser.followers_count || 0}</span>
                                     </div>
                                 </div>
                             </div>
