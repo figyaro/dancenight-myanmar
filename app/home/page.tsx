@@ -570,7 +570,28 @@ function HomeFeedContent() {
         const isPostVideo = currentPost && isVideo(currentPost.main_image_url);
         if (!isPostVideo) return; // Ignore taps on images
 
-        if (!hasInteracted) setHasInteracted(true);
+        // SYNC TRIGGER FOR MOBILE
+        if (!hasInteracted && activePostId) {
+            setHasInteracted(true);
+            setIsMuted(false);
+
+            // Directly finding video/iframe for immediate sync play
+            const container = postRefs.current[activePostId];
+            if (container) {
+                const video = container.querySelector('video');
+                const iframe = container.querySelector('iframe');
+                if (video) {
+                    video.muted = false;
+                    video.play().catch((err: any) => console.error("Sync play failed", err));
+                }
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+                    iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
+                    iframe.contentWindow.postMessage('play', '*');
+                    iframe.contentWindow.postMessage('unmute', '*');
+                }
+            }
+        }
         
         const newState = !isPlaying;
         setIsPlaying(newState);

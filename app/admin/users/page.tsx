@@ -454,6 +454,7 @@ export default function UserManagement() {
                                 className="w-full h-full object-contain"
                                 autoPlay
                                 loop
+                                muted
                                 controls
                                 webkit-playsinline="true"
                                 playsInline
