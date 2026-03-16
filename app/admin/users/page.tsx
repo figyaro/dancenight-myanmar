@@ -5,7 +5,8 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import LeftSlideOver from '../components/LeftSlideOver';
-import { isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamVideoUrl } from '../../../lib/bunny';
+import { isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamVideoUrl, getBunnyStreamHLSUrl, isBunnyStream } from '../../../lib/bunny';
+import VideoPlayer from '../../components/VideoPlayer';
 
 export default function UserManagement() {
     const [users, setUsers] = useState<any[]>([]);
@@ -454,15 +455,15 @@ export default function UserManagement() {
                 {previewMedia && (
                     <div className="w-full aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl relative">
                         {isVideo(previewMedia.main_image_url) ? (
-                            <video 
-                                src={getBunnyStreamVideoUrl(previewMedia.main_image_url) || undefined}
-                                className="w-full h-full object-contain"
-                                autoPlay
-                                loop
-                                muted
-                                controls
-                                webkit-playsinline="true"
-                                playsInline
+                            <VideoPlayer 
+                                url={isBunnyStream(previewMedia.main_image_url) ? (getBunnyStreamHLSUrl(previewMedia.main_image_url) || previewMedia.main_image_url) : previewMedia.main_image_url}
+                                poster={getBunnyStreamThumbnailUrl(previewMedia.main_image_url) || undefined}
+                                className="w-full h-full"
+                                isPlaying={true}
+                                isMuted={true}
+                                autoPlay={true}
+                                loop={true}
+                                objectFit="contain"
                             />
                         ) : (
                             <img 

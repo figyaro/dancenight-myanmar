@@ -149,9 +149,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       ref={videoRef}
       poster={poster}
       className={`${className} transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+      // Essential attributes for iOS/Mobile to allow inline and auto-playback
       playsInline
       // @ts-ignore
       webkit-playsinline="true"
+      x5-video-player-type="h5" // Wide mobile compatibility
       muted={isMuted}
       loop={loop}
       onEnded={onEnded}

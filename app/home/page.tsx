@@ -672,38 +672,24 @@ function HomeFeedContent() {
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
                     >
                         {post.main_image_url ? (
-                            isBunnyStream(post.main_image_url) ? (
+                            isVideo(post.main_image_url) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
-                                    <div className={`absolute inset-0 transition-opacity duration-1000 ${videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                                        <iframe
-                                            src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
-                                            loading="lazy"
-                                            style={{ border: 0, width: '100%', height: '100%' }}
-                                            className="w-full h-full object-cover pointer-events-none" 
-                                            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                            allowFullScreen
-                                            onLoad={(e) => {
-                                                // Even if autoplay is in URL, send play message just in case browser blocked it
-                                                if (activePostId === post.id && isPlaying) {
-                                                    const win = e.currentTarget.contentWindow;
-                                                    const sendPlay = () => {
-                                                        win?.postMessage(JSON.stringify({ method: 'play' }), '*');
-                                                        if (!hasInteracted || isMuted) {
-                                                            win?.postMessage(JSON.stringify({ method: 'mute' }), '*');
-                                                        } else {
-                                                            win?.postMessage(JSON.stringify({ method: 'unmute' }), '*');
-                                                        }
-                                                    };
-                                                    sendPlay();
-                                                    setTimeout(sendPlay, 500);
-                                                    setTimeout(sendPlay, 1000);
-                                                }
-                                            }}
-                                        ></iframe>
+                                    <div className={`absolute inset-0 transition-opacity duration-1000 ${isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
+                                        <VideoPlayer
+                                            url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
+                                            poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
+                                            className="w-full h-full"
+                                            isPlaying={activePostId === post.id && isPlaying}
+                                            isMuted={!hasInteracted || isMuted}
+                                            volume={volume}
+                                            autoPlay={activePostId === post.id}
+                                            loop={true}
+                                            objectFit="cover"
+                                        />
                                     </div>
 
-                                    {/* Video Processing Overlay */}
-                                    {videoStatusMap[post.id]?.ready === false && (
+                                    {/* Video Processing Overlay - Only for Bunny Stream */}
+                                    {isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false && (
                                         <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
                                             <div className="relative w-24 h-24 mb-6">
                                                 <svg className="w-full h-full text-zinc-800 -rotate-90" viewBox="0 0 100 100">
@@ -729,21 +715,7 @@ function HomeFeedContent() {
                                             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse text-center leading-relaxed">Designing the next viral moment...<br/>Get ready to dance.</p>
                                         </div>
                                     )}
-                                </div>
-                            ) : isVideo(post.main_image_url) ? (
-                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
-                                    <VideoPlayer
-                                        url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
-                                        poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
-                                        className="w-full h-full"
-                                        isPlaying={activePostId === post.id && isPlaying}
-                                        isMuted={!hasInteracted || isMuted}
-                                        volume={volume}
-                                        autoPlay={true}
-                                        loop={true}
-                                        objectFit="cover"
-                                    />
-                                    
+
                                     {/* Mobile Unmute Prompt */}
                                     {!hasInteracted && activePostId === post.id && (
                                         <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-black/20 pointer-events-none">

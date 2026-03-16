@@ -401,28 +401,7 @@ export default function PublicProfile() {
                                     >
                                         <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow */}
                                         {post.main_image_url ? (
-                                            isBunnyStream(post.main_image_url) ? (
-                                                isPlaying ? (
-                                                    <iframe
-                                                        src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
-                                                        loading="lazy"
-                                                        style={{ border: 0, width: '100%', height: '100%' }}
-                                                        className="w-full h-full object-cover pointer-events-none" 
-                                                        allow="accelerometer; gyroscope; autoplay; encrypted-media;"
-                                                    ></iframe>
-                                                ) : (
-                                                    <div className="w-full h-full relative">
-                                                        <img 
-                                                            src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
-                                                            className="w-full h-full object-cover" 
-                                                            alt="" 
-                                                        />
-                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            ) : isVideo(post.main_image_url) ? (
+                                            isVideo(post.main_image_url) ? (
                                                 <div className="w-full h-full relative">
                                                     <VideoPlayer
                                                         url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}

@@ -5,7 +5,8 @@ import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
-import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamThumbnailUrl } from '../../../lib/bunny';
+import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamThumbnailUrl, getBunnyStreamHLSUrl } from '../../../lib/bunny';
+import VideoPlayer from '../../components/VideoPlayer';
 
 
 export default function PostManagement() {
@@ -181,14 +182,14 @@ export default function PostManagement() {
                                         alt="Video Thumbnail" 
                                     />
                                 ) : isVideo(post.main_image_url) ? (
-                                    <video 
-                                        src={`${post.main_image_url}#t=0.1`}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                        muted
-                                        playsInline
-                                        // @ts-ignore
-                                        webkit-playsinline="true"
-                                        preload="metadata"
+                                    <VideoPlayer 
+                                        url={post.main_image_url}
+                                        className="w-full h-full"
+                                        isPlaying={false} // Don't autoplay in grid
+                                        isMuted={true}
+                                        autoPlay={false}
+                                        loop={false}
+                                        objectFit="cover"
                                     />
                                 ) : (
                                     <img 
@@ -298,18 +299,15 @@ export default function PostManagement() {
                                                     playsInline
                                                 />
                                             ) : isVideo(selectedPost.main_image_url) ? (
-                                                <video 
-                                                    className="w-full h-full object-contain"
-                                                    controls
-                                                    autoPlay
-                                                    muted
-                                                    playsInline
-                                                    // @ts-ignore
-                                                    webkit-playsinline="true"
-                                                    preload="metadata"
-                                                >
-                                                    <source src={selectedPost.main_image_url} type="video/mp4" />
-                                                </video>
+                                                <VideoPlayer 
+                                                    url={selectedPost.main_image_url}
+                                                    className="w-full h-full"
+                                                    isPlaying={true}
+                                                    isMuted={true}
+                                                    autoPlay={true}
+                                                    loop={true}
+                                                    objectFit="contain"
+                                                />
                                             ) : (
                                                 <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
                                             )
