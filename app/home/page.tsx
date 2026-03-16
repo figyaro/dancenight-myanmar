@@ -128,6 +128,8 @@ function HomeFeedContent() {
 
                 const targetUserId = searchParams.get('userId');
                 let data, error;
+                let mappedResult: Post[] = [];
+                let fallbackResult: Post[] = [];
 
                 if (targetUserId && isValidUUID(targetUserId)) {
                     // Fetch all posts for a specific user
@@ -157,7 +159,8 @@ function HomeFeedContent() {
                         .order('created_at', { ascending: false });
                     
                     if (fallbackError) throw fallbackError;
-                    setPosts(fallbackData as Post[]);
+                    fallbackResult = fallbackData as Post[];
+                    setPosts(fallbackResult);
                 } else if (data) {
                     const mappedData = data.map((item: any) => ({
                         id: item.out_id || item.id,
@@ -175,7 +178,8 @@ function HomeFeedContent() {
                         users: item.out_users || item.users,
                         score: item.out_score || item.score
                     }));
-                    setPosts(mappedData as Post[]);
+                    mappedResult = mappedData as Post[];
+                    setPosts(mappedResult);
                 }
 
                 if (data || posts.length > 0) {
@@ -204,9 +208,12 @@ function HomeFeedContent() {
                         console.warn('Comments table might not exist yet', cErr);
                     }
 
-                    const initialPosts = data || posts;
+                    const initialPosts = mappedResult.length > 0 ? mappedResult : (fallbackResult.length > 0 ? fallbackResult : posts);
                     if (initialPosts.length > 0) {
-                        setActivePostId(initialPosts[0].id);
+                        const firstPostId = initialPosts[0].id;
+                        setActivePostId(firstPostId);
+                        // Pre-calculate visibility for the first post to avoid delay
+                        setVisibilityRatios(prev => ({ ...prev, [firstPostId]: 1.0 }));
                     }
                 }
             } catch (err) {
@@ -222,12 +229,19 @@ function HomeFeedContent() {
     // Handle scroll to specific post if postId is provided
     useEffect(() => {
         if (!loading && posts.length > 0 && postIdParam) {
-            const targetElement = postRefs.current[postIdParam];
-            if (targetElement && scrollContainerRef.current) {
-                targetElement.scrollIntoView({ behavior: 'auto' });
-                // Immediately set as active to trigger playback logic
-                setActivePostId(postIdParam);
-            }
+            const scrollToTarget = () => {
+                const targetElement = postRefs.current[postIdParam];
+                if (targetElement && scrollContainerRef.current) {
+                    targetElement.scrollIntoView({ behavior: 'auto' });
+                    setActivePostId(postIdParam);
+                    setVisibilityRatios(prev => ({ ...prev, [postIdParam]: 1.0 }));
+                }
+            };
+            
+            scrollToTarget();
+            // Fallback for cases where layout is still settling
+            const timer = setTimeout(scrollToTarget, 100);
+            return () => clearTimeout(timer);
         }
     }, [loading, posts, postIdParam]);
 
@@ -433,6 +447,13 @@ function HomeFeedContent() {
         }
     }, [activePostId, userId]);
 
+    // Reset playing state when active post changes to ensure autoplay
+    useEffect(() => {
+        if (activePostId && !isPlaying) {
+            setIsPlaying(true);
+        }
+    }, [activePostId]);
+
     // Play/Pause video based on activePostId and isPlaying state
     useEffect(() => {
         if (!activePostId) return;
@@ -557,7 +578,6 @@ function HomeFeedContent() {
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                onClick={togglePlay}
                 className="absolute inset-0 snap-y snap-mandatory overflow-y-scroll scrollbar-hide bg-black overscroll-none"
                 style={{ WebkitOverflowScrolling: 'touch' }}
             >
@@ -661,6 +681,12 @@ function HomeFeedContent() {
                                 <span className="font-black tracking-tighter opacity-20 text-4xl">DANCE NIGHT</span>
                             </div>
                         )}
+                        
+                        {/* Dedicated Playback Toggle Overlay - Catches taps away from buttons */}
+                        <div 
+                            className="absolute inset-0 z-10 cursor-pointer"
+                            onClick={togglePlay}
+                        />
 
                         {/* Play/Pause Center Icon Overlay - Centered with animation */}
                         {activePostId === post.id && faintIcon && (
@@ -686,7 +712,7 @@ function HomeFeedContent() {
 
                         {/* Info Area */}
                         <div
-                            className="absolute bottom-28 left-4 right-16 pointer-events-none"
+                            className="absolute bottom-28 left-4 right-16 pointer-events-none z-20"
                             style={{
                                 opacity: visibilityRatios[post.id] ?? 0,
                                 transform: `translateY(${(1 - (visibilityRatios[post.id] ?? 0)) * 20}px)`,
@@ -723,7 +749,7 @@ function HomeFeedContent() {
 
                         {/* Interaction Menu */}
                         <div
-                            className="absolute bottom-28 right-4 flex flex-col gap-5 items-center w-14 pointer-events-auto"
+                            className="absolute bottom-28 right-4 flex flex-col gap-5 items-center w-14 pointer-events-auto z-20"
                             style={{
                                 opacity: visibilityRatios[post.id] ?? 0,
                                 transform: `translateX(${(1 - (visibilityRatios[post.id] ?? 0)) * 20}px)`,

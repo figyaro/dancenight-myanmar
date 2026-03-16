@@ -70,14 +70,18 @@ export function isBunnyStream(url: string | null): boolean {
     if (!url) return false;
     
     // 1. Check for official Bunny Stream domains
-    if (url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com')) return true;
+    if (url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com') || url.includes('player.mediadelivery.net')) return true;
     
     // 2. Check for bare GUID
     if (/^[a-z0-9-]{36}$/i.test(url)) return true;
 
     // 3. Check for Bunny Stream CDN domain + GUID pattern (most robust for custom pull zones)
-    // This allows identifying streams even if the library ID is missing from the path
+    // Exclude the storage pull zone to avoid false positives with storage files that have GUIDs in names
+    const isStoragePullZone = url.includes(STORAGE_PULL_ZONE) || (STORAGE_PULL_ZONE.includes('dancetgt.b-cdn.net') && url.includes('dancetgt.b-cdn.net'));
     const guidPattern = /[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/i;
+    
+    if (isStoragePullZone) return false;
+    
     return (url.includes(STREAM_CDN_HOSTNAME) || url.includes('b-cdn.net')) && guidPattern.test(url);
 }
 
@@ -154,8 +158,8 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     }
 
     // Use the official Stream CDN hostname
-    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/play_720p.mp4
-    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/play_720p.mp4`;
+    // Format for dedicated pull zone: https://{pullzone}.b-cdn.net/{videoId}/play_480p.mp4
+    return `https://${STREAM_CDN_HOSTNAME}/${videoId}/play_480p.mp4`;
 }
 
 /**
@@ -196,8 +200,8 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     if (!videoId) return url;
     
     // Use the official Stream CDN hostname for thumbnails
-    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/thumbnail.jpg
-    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/thumbnail.jpg`;
+    // Format for dedicated pull zone: https://{pullzone}.b-cdn.net/{videoId}/thumbnail.jpg
+    return `https://${STREAM_CDN_HOSTNAME}/${videoId}/thumbnail.jpg`;
 }
 
 /**

@@ -56,9 +56,9 @@ BEGIN
             'role', u.role
         ) as out_users,
         (
-            -- Scoring Logic: Give a higher base score to new posts (freshness boost)
-            (COALESCE(e.eng_like_count, 0) * 10 + COALESCE(e.eng_comment_count, 0) * 5 + 100) * 
-            POWER(0.5, EXTRACT(EPOCH FROM (now() - p.created_at)) / 3600) * -- Fast decay: 50% every hour for starting boost
+            -- Scoring Logic: Give a massive base score to new posts (freshness boost)
+            (COALESCE(e.eng_like_count, 0) * 10 + COALESCE(e.eng_comment_count, 0) * 5 + 1000) * 
+            POWER(0.1, EXTRACT(EPOCH FROM (now() - p.created_at)) / 3600) * -- Very fast decay: 90% drop every hour for the initial massive boost
             (CASE WHEN p.shop_id IS NOT NULL THEN 1.3 ELSE 1.0 END) * 
             (CASE WHEN s.s_seen_post_id IS NOT NULL THEN 0.1 ELSE 1.0 END)
         )::NUMERIC as out_score
