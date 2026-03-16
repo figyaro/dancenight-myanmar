@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import LoadingScreen from '../../components/LoadingScreen';
 import SlideOver from '../components/SlideOver';
-import LeftSlideOver from '../components/LeftSlideOver';
 import { uploadMedia } from '../../../lib/media-upload';
 import { isBunnyStream, getBunnyStreamVideoUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamThumbnailUrl } from '../../../lib/bunny';
 
@@ -17,7 +16,6 @@ export default function PostManagement() {
     const [editCaption, setEditCaption] = useState('');
     const [newMediaFile, setNewMediaFile] = useState<File | null>(null);
     const [newMediaPreview, setNewMediaPreview] = useState<string | null>(null);
-    const [previewMedia, setPreviewMedia] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -285,42 +283,33 @@ export default function PostManagement() {
                                         )}
                                     </div>
                                 ) : (
-                                    <div 
-                                        onClick={() => setPreviewMedia(selectedPost)}
-                                        className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group cursor-zoom-in"
-                                    >
+                                    <div className="mx-auto w-full h-full bg-zinc-800 rounded-3xl overflow-hidden relative group">
                                         {selectedPost.main_image_url && (
                                             isBunnyStream(selectedPost.main_image_url) ? (
-                                                <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center pointer-events-none">
-                                                    <img 
-                                                        src={getBunnyStreamThumbnailUrl(selectedPost.main_image_url)} 
-                                                        className="w-full h-full object-cover opacity-60"
-                                                        alt=""
-                                                    />
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center border border-white/20">
-                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <video 
+                                                    src={getBunnyStreamVideoUrl(selectedPost.main_image_url) || undefined}
+                                                    className="w-full h-full object-contain"
+                                                    autoPlay
+                                                    loop
+                                                    muted
+                                                    controls
+                                                    // @ts-ignore
+                                                    webkit-playsinline="true"
+                                                    playsInline
+                                                />
                                             ) : isVideo(selectedPost.main_image_url) ? (
-                                                <div className="relative w-full h-full">
-                                                    <video 
-                                                        className="w-full h-full object-cover opacity-60"
-                                                        muted
-                                                        playsInline
-                                                        // @ts-ignore
-                                                        webkit-playsinline="true"
-                                                        preload="metadata"
-                                                    >
-                                                        <source src={selectedPost.main_image_url} type="video/mp4" />
-                                                    </video>
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center border border-white/20">
-                                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <video 
+                                                    className="w-full h-full object-contain"
+                                                    controls
+                                                    autoPlay
+                                                    muted
+                                                    playsInline
+                                                    // @ts-ignore
+                                                    webkit-playsinline="true"
+                                                    preload="metadata"
+                                                >
+                                                    <source src={selectedPost.main_image_url} type="video/mp4" />
+                                                </video>
                                             ) : (
                                                 <img src={selectedPost.main_image_url} className="w-full h-full object-contain" alt="" />
                                             )
@@ -454,46 +443,6 @@ export default function PostManagement() {
                     </div>
                 )}
             </SlideOver>
-            
-            <LeftSlideOver
-                isOpen={!!previewMedia}
-                onClose={() => setPreviewMedia(null)}
-                title="MEDIA PREVIEW"
-            >
-                {previewMedia && (
-                    <div className="w-full aspect-[9/16] bg-black rounded-3xl overflow-hidden shadow-2xl relative">
-                        {isVideo(previewMedia.main_image_url) ? (
-                            isBunnyStream(previewMedia.main_image_url) ? (
-                                <iframe
-                                    src={`${getBunnyStreamEmbedUrl(previewMedia.main_image_url)}?autoplay=true&loop=true&preload=true&responsive=true`}
-                                    loading="lazy"
-                                    style={{ border: 0, width: '100%', height: '100%' }}
-                                    className="w-full h-full object-cover" 
-                                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                    allowFullScreen
-                                ></iframe>
-                            ) : (
-                                <video 
-                                    src={previewMedia.main_image_url}
-                                    className="w-full h-full object-contain"
-                                    autoPlay
-                                    loop
-                                    controls
-                                    playsInline
-                                    // @ts-ignore
-                                    webkit-playsinline="true"
-                                />
-                            )
-                        ) : (
-                            <img 
-                                src={previewMedia.main_image_url} 
-                                className="w-full h-full object-contain" 
-                                alt=""
-                            />
-                        )}
-                    </div>
-                )}
-            </LeftSlideOver>
         </div>
     );
 }
