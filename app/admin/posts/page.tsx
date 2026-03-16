@@ -186,6 +186,8 @@ export default function PostManagement() {
                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         muted
                                         playsInline
+                                        // @ts-ignore
+                                        webkit-playsinline="true"
                                         preload="metadata"
                                     />
                                 ) : (
@@ -269,7 +271,10 @@ export default function PostManagement() {
                             <div className="relative aspect-[9/16] bg-black rounded-3xl border border-white/10 overflow-hidden shadow-2xl mx-auto max-w-[300px]">
                                 {newMediaPreview ? (
                                     isVideo(newMediaFile?.name || '') ? (
-                                        <video className="w-full h-full object-cover" controls autoPlay muted playsInline>
+                                        <video className="w-full h-full object-cover" controls autoPlay muted playsInline 
+                                            // @ts-ignore
+                                            webkit-playsinline="true"
+                                        >
                                             <source src={newMediaPreview} type="video/mp4" />
                                         </video>
                                     ) : (
@@ -296,6 +301,8 @@ export default function PostManagement() {
                                                     autoPlay
                                                     muted
                                                     playsInline
+                                                    // @ts-ignore
+                                                    webkit-playsinline="true"
                                                     preload="metadata"
                                                 >
                                                     <source src={selectedPost.main_image_url} type="video/mp4" />

@@ -242,6 +242,9 @@ export default function PostPage() {
                                     src={mediaPreview} 
                                     className="w-full h-full object-cover" 
                                     controls 
+                                    playsInline
+                                    // @ts-ignore
+                                    webkit-playsinline="true"
                                 />
                             ) : (
                                 <img src={mediaPreview} className="w-full h-full object-cover" alt="Preview" />

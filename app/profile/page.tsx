@@ -327,6 +327,8 @@ export default function Profile() {
                                                         className="w-full h-full object-cover"
                                                         muted
                                                         playsInline
+                                                        // @ts-ignore
+                                                        webkit-playsinline="true"
                                                         autoPlay={isPlaying}
                                                         onEnded={() => setPlayingVideoId(null)}
                                                     />

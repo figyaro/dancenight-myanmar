@@ -161,12 +161,15 @@ export default function ShopPostManagement() {
                                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                             muted
                                             playsInline
+                                            // @ts-ignore
+                                            webkit-playsinline="true"
                                             loop
                                             onMouseOver={(e) => e.currentTarget.play()}
                                             onMouseOut={(e) => {
                                                 e.currentTarget.pause();
                                                 e.currentTarget.currentTime = 0;
                                             }}
+                                            onTouchStart={(e) => e.currentTarget.play()}
                                         />
                                     ) : (mediaUrl && mediaUrl.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null) ? (
                                         <video 
@@ -174,11 +177,14 @@ export default function ShopPostManagement() {
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                             muted
                                             playsInline
+                                            // @ts-ignore
+                                            webkit-playsinline="true"
                                             onMouseOver={(e) => e.currentTarget.play()}
                                             onMouseOut={(e) => {
                                                 e.currentTarget.pause();
                                                 e.currentTarget.currentTime = 0;
                                             }}
+                                            onTouchStart={(e) => e.currentTarget.play()}
                                         />
                                     ) : (
                                         <img src={mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="" />

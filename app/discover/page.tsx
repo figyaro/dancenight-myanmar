@@ -7,14 +7,20 @@ import { supabase } from '../../lib/supabase';
 import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo } from '../../lib/bunny';
 
 interface Post {
-    id: number;
+    id: string;
     user_id: string;
     area: string;
     name: string;
     title: string;
-    rating: number;
     main_image_url: string;
+    impressions_count?: number;
 }
+
+const formatNumber = (num: number): string => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return num.toString();
+};
 
 const sortTabs = [
     { id: 'newest', label: 'NEW' },
@@ -37,20 +43,38 @@ export default function Discover() {
     const fetchPosts = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('posts').select('*');
+            // Fetch posts with aggregated impression counts
+            let query = supabase
+                .from('posts')
+                .select(`
+                    *,
+                    impressions:post_impressions(count)
+                `);
 
             if (activeTab === 'newest') {
-                query = query.order('id', { ascending: false });
+                query = query.order('created_at', { ascending: false });
             } else if (activeTab === 'popular') {
-                query = query.order('rating', { ascending: false });
+                // Sorting by popularity will still be by rating or we could sort by impressions later
+                query = query.order('id', { ascending: false });
             } else {
-                // For "interested", just do id ascending or random
                 query = query.order('id', { ascending: true });
             }
 
             const { data, error } = await query;
             if (error) throw error;
-            setPosts(data || []);
+            
+            // Map the nested count to a flat property
+            const mappedPosts = (data || []).map((p: any) => ({
+                ...p,
+                impressions_count: p.impressions && p.impressions[0] ? p.impressions[0].count : 0
+            }));
+
+            // If popular tab, sort client-side by impressions_count for now
+            if (activeTab === 'popular') {
+                mappedPosts.sort((a, b) => (b.impressions_count || 0) - (a.impressions_count || 0));
+            }
+
+            setPosts(mappedPosts);
         } catch (err) {
             console.error('Error fetching posts:', err);
         } finally {
@@ -94,15 +118,19 @@ export default function Discover() {
             {/* Header */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/5">
                 <div className="max-w-md mx-auto px-4 pt-6 pb-2">
-                    <div className="flex items-center justify-between mb-6">
-                        <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-400">
-                            DISCOVER
-                        </h1>
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="relative group">
+                            <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-400 to-pink-500 animate-gradient-x drop-shadow-[0_10px_20px_rgba(219,39,119,0.3)]">
+                                DISCOVER
+                            </h1>
+                            <div className="absolute -bottom-2 left-0 w-12 h-1 bg-pink-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 shadow-[0_0_15px_rgba(219,39,119,0.5)]" />
+                        </div>
                         <button 
                             onClick={() => setIsSearchVisible(!isSearchVisible)}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${isSearchVisible ? 'bg-pink-600 border-pink-500 text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}
+                            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 border relative overflow-hidden group ${isSearchVisible ? 'bg-pink-600 border-pink-500 text-white shadow-[0_0_30px_rgba(219,39,119,0.4)]' : 'bg-white/5 backdrop-blur-xl border-white/10 text-zinc-400 hover:border-white/20'}`}
                         >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="relative z-10">
                                 {isSearchVisible ? (
                                     <path d="M18 6L6 18M6 6l12 12" />
                                 ) : (
@@ -116,14 +144,14 @@ export default function Discover() {
                     </div>
 
                     {/* 検索バー */}
-                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isSearchVisible ? 'max-h-24 opacity-100 mb-6' : 'max-h-0 opacity-0 mb-0'}`}>
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-pink-500/20 blur-xl scale-95 opacity-50" />
+                    <div className={`overflow-hidden transition-all duration-700 ease-in-out ${isSearchVisible ? 'max-h-24 opacity-100 mb-8' : 'max-h-0 opacity-0 mb-0'}`}>
+                        <div className="relative group">
+                            <div className="absolute inset-0 bg-pink-500/10 blur-2xl scale-95 opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
                             <div className="relative">
                                 <svg
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                                    width="18"
-                                    height="18"
+                                    className="absolute left-5 top-1/2 -translate-y-1/2 text-pink-500/50 group-focus-within:text-pink-500 transition-colors"
+                                    width="20"
+                                    height="20"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -136,27 +164,30 @@ export default function Discover() {
                                 </svg>
                                 <input
                                     type="text"
-                                    placeholder="Search by area, name, or style..."
+                                    placeholder="Find your next vibe..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-xs font-bold placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 transition-all"
+                                    className="w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-sm font-bold placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 focus:ring-4 focus:ring-pink-500/10 transition-all shadow-inner"
                                 />
                             </div>
                         </div>
                     </div>
  
-                    {/* Sort Tabs */}
-                    <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-xl border border-white/5 mb-2">
+                    {/* Sort Tabs - Liquid Style */}
+                    <div className="flex gap-2 bg-white/5 backdrop-blur-md p-1.5 rounded-[1.25rem] border border-white/10 mb-2 shadow-2xl">
                         {sortTabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex-1 py-2 rounded-lg text-xs font-black tracking-widest transition-all duration-300 ${activeTab === tab.id
-                                    ? 'bg-gradient-to-tr from-pink-600 to-rose-500 text-white shadow-lg'
+                                className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-[0.2em] transition-all duration-500 relative overflow-hidden group ${activeTab === tab.id
+                                    ? 'text-white'
                                     : 'text-zinc-500 hover:text-zinc-300'
                                     }`}
                             >
-                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-pink-600 via-rose-500 to-pink-600 animate-gradient-x" />
+                                )}
+                                <span className="relative z-10">{tab.label}</span>
                             </button>
                         ))}
                     </div>
@@ -201,10 +232,15 @@ export default function Discover() {
                                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                                 muted
                                                 playsInline
+                                                // @ts-ignore
+                                                webkit-playsinline="true"
                                                 onMouseEnter={(e) => e.currentTarget.play()}
                                                 onMouseLeave={(e) => {
                                                     e.currentTarget.pause();
                                                     e.currentTarget.currentTime = 0;
+                                                }}
+                                                onTouchStart={(e) => {
+                                                    e.currentTarget.play();
                                                 }}
                                             />
                                             <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center">
@@ -227,24 +263,30 @@ export default function Discover() {
                                 {/* Gradient Overlay */}
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/80" />
 
-                                {/* Content Overlay */}
-                                <div className="absolute inset-0 p-3 flex flex-col justify-between">
+                                {/* Content Overlay - Liquid Glass Styling */}
+                                <div className="absolute inset-0 p-4 flex flex-col justify-between z-30">
                                     <div className="flex justify-between items-start">
-                                        <div className="bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                            <span className="text-[10px] font-black">{post.rating}</span>
+                                        <div className="bg-black/30 backdrop-blur-xl px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1.5 shadow-xl">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-pink-500">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                            <span className="text-[10px] font-black tracking-wider">{formatNumber(post.impressions_count || 0)}</span>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <span className="inline-block px-2 py-0.5 rounded bg-pink-600 text-[8px] font-black tracking-widest uppercase mb-1">
+                                    <div className="space-y-1">
+                                        <span className="inline-block px-2 py-0.5 rounded-lg bg-pink-500/80 backdrop-blur-md text-[8px] font-black tracking-[0.2em] uppercase shadow-lg shadow-pink-900/40">
                                             {post.area}
                                         </span>
-                                        <h3 className="text-xs font-black truncate drop-shadow-lg">
+                                        <h3 className="text-xs font-black truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-tight">
                                             {post.name.toUpperCase()}
                                         </h3>
                                     </div>
                                 </div>
+                                
+                                {/* Hover Glow Effect */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-pink-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                             </div>
                         ))}
                     </div>

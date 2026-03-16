@@ -454,6 +454,41 @@ function HomeFeedContent() {
         }
     }, [activePostId]);
 
+    const forcePlayActivePost = () => {
+        if (!activePostId) return;
+        const container = postRefs.current[activePostId];
+        const video = container?.querySelector('video');
+        const iframe = container?.querySelector('iframe');
+
+        if (video) {
+            video.play().catch(e => console.warn("Force play failed:", e));
+        }
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+            iframe.contentWindow.postMessage('play', '*');
+        }
+    };
+
+    // Global interaction listener to "unlock" video on iOS
+    useEffect(() => {
+        const handleFirstInteraction = () => {
+            if (!hasInteracted) {
+                setHasInteracted(true);
+                forcePlayActivePost();
+            }
+            window.removeEventListener('touchstart', handleFirstInteraction);
+            window.removeEventListener('mousedown', handleFirstInteraction);
+        };
+
+        window.addEventListener('touchstart', handleFirstInteraction);
+        window.addEventListener('mousedown', handleFirstInteraction);
+
+        return () => {
+            window.removeEventListener('touchstart', handleFirstInteraction);
+            window.removeEventListener('mousedown', handleFirstInteraction);
+        };
+    }, [activePostId, hasInteracted]);
+
     // Play/Pause video based on activePostId and isPlaying state
     useEffect(() => {
         if (!activePostId) return;
@@ -670,6 +705,8 @@ function HomeFeedContent() {
                                     <video 
                                         className="w-full h-full object-cover"
                                         playsInline
+                                        // @ts-ignore
+                                        webkit-playsinline="true"
                                         muted
                                         loop
                                         autoPlay

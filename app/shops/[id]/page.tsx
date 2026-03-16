@@ -654,12 +654,15 @@ export default function ShopDetail() {
                                                         className="w-full h-full object-cover"
                                                         muted
                                                         playsInline
+                                                        // @ts-ignore
+                                                        webkit-playsinline="true"
                                                         loop
                                                         onMouseOver={(e) => e.currentTarget.play()}
                                                         onMouseOut={(e) => {
                                                             e.currentTarget.pause();
                                                             e.currentTarget.currentTime = 0;
                                                         }}
+                                                        onTouchStart={(e) => e.currentTarget.play()}
                                                     />
                                                     <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
@@ -672,6 +675,9 @@ export default function ShopDetail() {
                                                         className="w-full h-full object-cover"
                                                         muted
                                                         playsInline
+                                                        // @ts-ignore
+                                                        webkit-playsinline="true"
+                                                        onTouchStart={(e) => e.currentTarget.play()}
                                                     />
                                                     <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
                                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
