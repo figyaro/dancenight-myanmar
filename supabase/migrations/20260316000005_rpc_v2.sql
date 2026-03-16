@@ -56,9 +56,9 @@ BEGIN
             'role', u.role
         ) as out_users,
         (
-            -- Scoring Logic
-            (COALESCE(e.eng_like_count, 0) * 10 + COALESCE(e.eng_comment_count, 0) * 5 + 1) * 
-            POWER(0.8, EXTRACT(EPOCH FROM (now() - p.created_at)) / 86400) * 
+            -- Scoring Logic: Give a higher base score to new posts (freshness boost)
+            (COALESCE(e.eng_like_count, 0) * 10 + COALESCE(e.eng_comment_count, 0) * 5 + 100) * 
+            POWER(0.5, EXTRACT(EPOCH FROM (now() - p.created_at)) / 3600) * -- Fast decay: 50% every hour for starting boost
             (CASE WHEN p.shop_id IS NOT NULL THEN 1.3 ELSE 1.0 END) * 
             (CASE WHEN s.s_seen_post_id IS NOT NULL THEN 0.1 ELSE 1.0 END)
         )::NUMERIC as out_score
@@ -67,6 +67,6 @@ BEGIN
     LEFT JOIN engagement e ON e.eng_post_id = p.id
     LEFT JOIN seen_posts s ON s.s_seen_post_id = p.id
     ORDER BY out_score DESC, p.created_at DESC
-    LIMIT 50;
+    LIMIT 100;
 END;
 $$;

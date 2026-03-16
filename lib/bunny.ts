@@ -154,8 +154,8 @@ export function getBunnyStreamVideoUrl(url: string | null): string | null {
     }
 
     // Use the official Stream CDN hostname
-    // Format: https://{pullzone}.b-cdn.net/{videoId}/play_720p.mp4
-    return `https://${STREAM_CDN_HOSTNAME}/${videoId}/play_720p.mp4`;
+    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/play_720p.mp4
+    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/play_720p.mp4`;
 }
 
 /**
@@ -196,8 +196,8 @@ export function getBunnyStreamThumbnailUrl(url: string | null): string | null {
     if (!videoId) return url;
     
     // Use the official Stream CDN hostname for thumbnails
-    // Format: https://{pullzone}.b-cdn.net/{videoId}/thumbnail.jpg
-    return `https://${STREAM_CDN_HOSTNAME}/${videoId}/thumbnail.jpg`;
+    // Format: https://{pullzone}.b-cdn.net/{libraryId}/{videoId}/thumbnail.jpg
+    return `https://${STREAM_CDN_HOSTNAME}/${libraryId}/${videoId}/thumbnail.jpg`;
 }
 
 /**

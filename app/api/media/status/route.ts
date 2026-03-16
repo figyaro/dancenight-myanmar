@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY;
-const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID;
+const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || '617122';
 
 export async function GET(req: NextRequest) {
     const videoId = req.nextUrl.searchParams.get('videoId');
