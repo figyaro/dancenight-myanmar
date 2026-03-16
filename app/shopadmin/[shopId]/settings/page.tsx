@@ -12,7 +12,7 @@ function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
     if (!url) {
         if (!shopName) return null;
         const query = encodeURIComponent(`${shopName} ${area}`);
-        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     if (url.includes('/embed') || (url.includes('google.com/maps') && url.includes('output=embed'))) {
@@ -21,16 +21,16 @@ function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
 
     const latLngMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (latLngMatch) {
-        return `https://www.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${latLngMatch[1]},${latLngMatch[2]}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     if (!url.includes('http')) {
         const query = encodeURIComponent(url);
-        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     const query = encodeURIComponent(`${shopName} ${area}`);
-    return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+    return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
 }
 
 export default function ShopSettings() {

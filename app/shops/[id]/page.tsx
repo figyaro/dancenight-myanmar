@@ -36,7 +36,7 @@ function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
     if (!url) {
         // Fallback: search by name + area if no specific URL is provided
         const query = encodeURIComponent(`${shopName} ${area}`);
-        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     // 1. If it's already an embed URL (contains /embed), return as-is
@@ -49,19 +49,19 @@ function getMapEmbedUrl(url: string | null, shopName: string, area: string) {
     if (latLngMatch) {
         const lat = latLngMatch[1];
         const lng = latLngMatch[2];
-        return `https://www.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     // 3. Check if it's a plain address/search query
     // If it contains http, it's likely a URL. If not, treat as text query.
     if (!url.includes('http')) {
         const query = encodeURIComponent(url);
-        return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+        return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
     }
 
     // Default Fallback for generic URLs or short links
     const query = encodeURIComponent(`${shopName} ${area}`);
-    return `https://www.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
+    return `https://maps.google.com/maps?q=${query}&hl=en&z=15&output=embed&iwloc=`;
 }
 
 export default function ShopDetail() {
