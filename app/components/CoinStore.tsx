@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { getEffectiveUserId } from '../lib/auth-util';
+import { supabase } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 
 interface CoinTier {
     id: string;

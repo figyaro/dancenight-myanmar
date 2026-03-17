@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { getEffectiveUserId } from '../lib/auth-util';
+import { supabase } from '../../lib/supabase';
+import { getEffectiveUserId } from '../../lib/auth-util';
 
 interface Transaction {
     id: string;
