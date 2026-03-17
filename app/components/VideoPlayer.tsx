@@ -133,6 +133,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     } else {
       video.pause();
+      // On some versions of iOS, pause() doesn't immediately stop the audio buffer
+      // Explicitly muting helps prevent "leakage"
+      video.muted = true;
     }
   }, [isPlaying]);
 
@@ -142,7 +145,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video) return;
     video.muted = isMuted;
     video.volume = volume;
-  }, [isMuted, volume]);
+
+    // If we are unmuting, ensure we attempt to play (to catch cases where browser blocked earlier)
+    if (!isMuted && isPlaying) {
+      video.play().catch(() => {});
+    }
+  }, [isMuted, volume, isPlaying]);
 
   return (
     <video

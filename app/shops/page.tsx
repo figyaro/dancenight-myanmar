@@ -314,20 +314,19 @@ export default function Shops() {
                                                         </span>
                                                     )}
                                                 </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Card Text Content */}
-                                        <div className="p-8 pt-6">
-                                            <p className="text-zinc-400 text-sm font-medium leading-relaxed line-clamp-2 mb-8 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                {shop.description || "Indulge in an exclusive atmosphere where premium services meet unforgettable entertainment experiences."}
-                                            </p>
-                                            <div className="flex items-center justify-between pt-6 border-t border-white/10">
-                                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.25em] group-hover:text-pink-500 transition-colors">Experience Now</span>
-                                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-pink-600 group-hover:text-white transition-all duration-700 shadow-xl group-active:scale-95 group-hover:shadow-pink-900/40">
+                                            {/* Action Arrow Overlay */}
+                                            <div className="absolute bottom-6 right-8">
+                                                <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:bg-pink-600 group-hover:border-pink-500 transition-all duration-500 shadow-xl group-active:scale-95 group-hover:shadow-pink-900/40">
                                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        {/* Card Text Content - Compacted */}
+                                        <div className="px-8 py-5">
+                                            <p className="text-zinc-400 text-xs font-medium leading-relaxed line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                {shop.description || "Indulge in an exclusive atmosphere where premium services meet unforgettable entertainment experiences."}
+                                            </p>
                                         </div>
                                     </div>
                                 </Link>

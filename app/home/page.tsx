@@ -679,8 +679,10 @@ function HomeFeedContent() {
                                             url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
                                             poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
                                             className="w-full h-full"
-                                            isPlaying={activePostId === post.id && isPlaying}
-                                            isMuted={!hasInteracted || isMuted}
+                                            // Play only when strongly visible (> 50%) and global isPlaying is true
+                                            isPlaying={activePostId === post.id && isPlaying && (visibilityRatios[post.id] || 0) > 0.5}
+                                            // Mute immediately if moving off-screen (visibility < 95%) or globally muted
+                                            isMuted={!hasInteracted || isMuted || (visibilityRatios[post.id] || 0) < 0.95}
                                             volume={volume}
                                             autoPlay={activePostId === post.id}
                                             loop={true}
@@ -948,55 +950,71 @@ function HomeFeedContent() {
                 ))}
             </div>
 
-            {/* Comment Modal (Bottom Sheet) */}
+            {/* Comment Modal (Bottom Sheet) - Liquid Glass Redesign */}
             {isCommentModalOpen && currentPost && (
-                <div className="fixed inset-0 z-[200] flex items-end justify-center">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCommentModalOpen(false)} />
-                    <div className="relative w-full max-w-md bg-zinc-900 border-t border-white/10 rounded-t-[32px] h-[75vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-                        <div className="flex justify-between items-center p-6 border-b border-white/5">
-                            <h3 className="text-sm font-black tracking-widest uppercase">Comments ({comments.length})</h3>
-                            <button onClick={() => setIsCommentModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <div className="fixed inset-0 z-[200] flex items-end justify-center pointer-events-none">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md pointer-events-auto" onClick={() => setIsCommentModalOpen(false)} />
+                    <div className="relative w-full max-w-md bg-zinc-900/80 backdrop-blur-3xl border-t border-white/20 rounded-t-[40px] h-[75vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] shadow-[0_-20px_80px_rgba(0,0,0,0.8)] pointer-events-auto">
+                        
+                        {/* Drag Indicator */}
+                        <div className="flex justify-center pt-4 pb-1">
+                            <div className="w-12 h-1.5 bg-white/10 rounded-full" />
+                        </div>
+
+                        <div className="flex justify-between items-center px-8 py-6">
+                            <div>
+                                <h3 className="text-lg font-black tracking-tighter text-white leading-none mb-1">COMMENTS</h3>
+                                <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] opacity-80">{comments.length} Thoughts Shared</p>
+                            </div>
+                            <button onClick={() => setIsCommentModalOpen(false)} className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all active:scale-90">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        <div className="flex-1 overflow-y-auto px-8 space-y-8 scrollbar-hide py-4">
                             {comments.length === 0 ? (
-                                <div className="text-center py-10 opacity-30">
-                                    <svg width="48" height="48" className="mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-                                    <p className="text-xs font-bold tracking-widest uppercase">No comments yet</p>
+                                <div className="flex flex-col items-center justify-center h-48 text-center opacity-20">
+                                    <svg width="64" height="64" className="mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                    <p className="text-xs font-black tracking-[0.3em] uppercase">Be the first to speak</p>
                                 </div>
                             ) : (
                                 comments.map(comment => (
-                                    <div key={comment.id} className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-full border border-white/10 overflow-hidden flex-shrink-0 bg-zinc-800">
-                                            {comment.users?.avatar_url ? (
-                                                <img src={comment.users.avatar_url} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                                        <circle cx="12" cy="7" r="4" />
-                                                    </svg>
+                                    <div key={comment.id} className="flex gap-4 group">
+                                        <div className="relative flex-shrink-0">
+                                            <div className="w-12 h-12 rounded-2xl p-[1px] bg-gradient-to-tr from-white/20 to-transparent">
+                                                <div className="w-full h-full rounded-2xl border border-black overflow-hidden bg-zinc-800">
+                                                    {comment.users?.avatar_url ? (
+                                                        <img src={comment.users.avatar_url} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-800">
+                                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                                <circle cx="12" cy="7" r="4" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">{comment.users?.nickname || 'Guest User'}</p>
-                                            <p className="text-sm text-zinc-200 font-medium leading-relaxed">{comment.content}</p>
-                                            <p className="text-[9px] text-zinc-600 mt-2 font-bold uppercase tracking-widest">
-                                                {new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                                        <div className="flex-1 space-y-1">
+                                            <div className="flex justify-between items-baseline">
+                                                <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">{comment.users?.nickname || 'Guest User'}</p>
+                                                <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">
+                                                    {new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                </p>
+                                            </div>
+                                            <p className="text-sm text-zinc-400 font-medium leading-relaxed group-hover:text-zinc-200 transition-colors">{comment.content}</p>
                                         </div>
                                     </div>
                                 ))
                             )}
                         </div>
 
-                        <div className="p-6 bg-zinc-900 border-t border-white/5 pb-10">
-                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-2 pl-4">
+                        {/* Input Area - Fixed at bottom */}
+                        <div className="p-8 pb-12 bg-zinc-900/50 backdrop-blur-3xl border-t border-white/10">
+                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-[2rem] p-2 pl-6 focus-within:border-pink-500/50 focus-within:bg-white/10 transition-all shadow-inner">
                                 <input 
-                                    className="flex-1 bg-transparent text-sm font-semibold outline-none py-2 placeholder-zinc-600"
+                                    className="flex-1 bg-transparent text-sm font-bold outline-none py-3 placeholder-zinc-600 text-white"
                                     placeholder="Add a comment..."
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
@@ -1005,9 +1023,13 @@ function HomeFeedContent() {
                                 <button 
                                     onClick={handleSubmitComment}
                                     disabled={!newComment.trim() || isSubmittingComment}
-                                    className="bg-pink-600 hover:bg-pink-500 disabled:opacity-30 disabled:scale-100 text-white font-black px-4 py-2 rounded-xl text-xs tracking-widest uppercase transition-all active:scale-95"
+                                    className="bg-pink-600 hover:bg-pink-500 disabled:opacity-30 text-white font-black w-14 h-11 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-xl shadow-pink-900/20"
                                 >
-                                    {isSubmittingComment ? '...' : 'Post'}
+                                    {isSubmittingComment ? (
+                                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                    )}
                                 </button>
                             </div>
                         </div>
