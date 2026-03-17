@@ -314,6 +314,7 @@ export default function Shops() {
                                                         </span>
                                                     )}
                                                 </div>
+                                            </div>
                                             {/* Action Arrow Overlay */}
                                             <div className="absolute bottom-6 right-8">
                                                 <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:bg-pink-600 group-hover:border-pink-500 transition-all duration-500 shadow-xl group-active:scale-95 group-hover:shadow-pink-900/40">
