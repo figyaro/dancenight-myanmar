@@ -36,8 +36,8 @@ export default function UserManagement() {
             setCurrentUser(profile);
         }
 
-        // Use the unified RPC for user list with stats
-        const { data: usersData, error } = await supabase.rpc('get_users_with_stats');
+        // Use the unified RPC for user list with stats (Final Version v4)
+        const { data: usersData, error } = await supabase.rpc('get_admin_user_stats_v4');
         
         if (error) {
             console.error('Error fetching users with stats:', error);
