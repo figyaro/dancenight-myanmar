@@ -84,6 +84,7 @@ function HomeFeedContent() {
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
     const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
     const [followingIds, setFollowingIds] = useState<string[]>([]);
+    const [showSuccessNotification, setShowSuccessNotification] = useState<string | null>(null);
 
     const searchParams = useSearchParams();
     const postIdParam = searchParams.get('postId');
@@ -414,6 +415,8 @@ function HomeFeedContent() {
 
                         if (data.ready) {
                             pollingStateRef.current[post.id] = 'ready';
+                            setShowSuccessNotification(post.name || 'Your video');
+                            setTimeout(() => setShowSuccessNotification(null), 5000);
                             return; // Stop polling
                         }
                     }
@@ -640,6 +643,46 @@ function HomeFeedContent() {
             `}</style>
 
             <TopNav />
+
+            {/* Success Notification */}
+            {showSuccessNotification && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[110] w-full max-w-xs animate-in slide-in-from-top-10 duration-700">
+                    <div className="bg-gradient-to-r from-pink-600 to-rose-500 rounded-2xl p-4 shadow-[0_20px_50px_rgba(236,72,153,0.4)] border border-white/20 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white shrink-0">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div>
+                            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-0.5">Dance Ready!</h4>
+                            <p className="text-[11px] text-white/90 font-bold leading-tight">{showSuccessNotification} is now live on the feed.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Background Processing Indicator */}
+            {Object.entries(videoStatusMap).some(([_, status]) => !status.ready) && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xs animate-in slide-in-from-top-4 duration-500">
+                    <div className="bg-zinc-900/80 backdrop-blur-xl border border-pink-500/30 rounded-2xl p-4 shadow-2xl shadow-pink-900/20">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="flex-1">
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-1">Processing Videos</h4>
+                                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Optimizing for the feed...</p>
+                            </div>
+                            <div className="animate-spin h-4 w-4 border-2 border-pink-500 border-t-transparent rounded-full" />
+                        </div>
+                        <div className="space-y-2">
+                            {Object.entries(videoStatusMap).filter(([_, status]) => !status.ready).map(([postId, status]) => (
+                                <div key={postId} className="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-pink-600 to-rose-500 transition-all duration-700"
+                                        style={{ width: `${status.encodeProgress}%` }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Feed */}
             <div
