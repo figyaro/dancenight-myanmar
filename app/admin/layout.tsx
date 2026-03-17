@@ -56,7 +56,7 @@ const ALL_MENU_ITEMS = [
     { name: 'Posts', icon: Icons.Posts, path: '/admin/posts' },
     { name: 'Shops', icon: Icons.Shops, path: '/admin/shops' },
     { name: 'Sales', icon: Icons.Sales, path: '/admin/sales' },
-    { name: 'Dtip Management', icon: Icons.Dtip, path: '/admin/dtip' },
+    { name: 'Dtip', icon: Icons.Dtip, path: '/admin/dtip' },
     { name: 'Events', icon: Icons.Events, path: '/admin/events' },
     { name: 'Plans', icon: Icons.Plans, path: '/admin/plans' },
     { name: 'Translations', icon: Icons.Translations, path: '/admin/translations' },

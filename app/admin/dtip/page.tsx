@@ -145,10 +145,13 @@ export default function DtipManagement() {
                 <div className="flex gap-2 w-full sm:w-auto">
                     <button 
                         onClick={fetchData}
-                        className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group"
                         title="Refresh Data"
                     >
-                        🔄
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 group-hover:rotate-180 transition-transform duration-500">
+                            <path d="M23 4v6h-6" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -162,13 +165,13 @@ export default function DtipManagement() {
                     {activeTab === 'overview' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {[
-                                { label: 'Total Circulation', value: stats.totalCirculation, icon: '🪙', color: 'from-amber-500/20 to-orange-500/20' },
-                                { label: 'Transaction Count', value: stats.totalTransactions, icon: '📊', color: 'from-blue-500/20 to-cyan-500/20' },
-                                { label: 'Purchased Volume', value: stats.totalPurchased, icon: '💳', color: 'from-emerald-500/20 to-teal-500/20' },
-                                { label: 'Tipped Volume', value: stats.totalTipped, icon: '💝', color: 'from-pink-500/20 to-rose-500/20' },
+                                { label: 'Total Circulation', value: stats.totalCirculation, icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/></svg>, color: 'from-amber-500/20 to-orange-500/20', textColor: 'text-amber-400' },
+                                { label: 'Transaction Count', value: stats.totalTransactions, icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>, color: 'from-blue-500/20 to-cyan-500/20', textColor: 'text-blue-400' },
+                                { label: 'Purchased Volume', value: stats.totalPurchased, icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>, color: 'from-emerald-500/20 to-teal-500/20', textColor: 'text-emerald-400' },
+                                { label: 'Tipped Volume', value: stats.totalTipped, icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>, color: 'from-pink-500/20 to-rose-500/20', textColor: 'text-pink-400' },
                             ].map((card, i) => (
                                 <div key={i} className="bg-zinc-900/40 p-6 rounded-3xl border border-white/5 backdrop-blur-xl group hover:border-white/10 transition-all duration-500">
-                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${card.color} flex items-center justify-center text-2xl mb-4`}>
+                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${card.color} flex items-center justify-center ${card.textColor} mb-4`}>
                                         {card.icon}
                                     </div>
                                     <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</p>
@@ -260,7 +263,12 @@ export default function DtipManagement() {
                                     onClick={() => setIsCampaignModalOpen(true)}
                                     className="bg-zinc-900/40 p-8 rounded-3xl border border-white/5 border-dashed hover:border-pink-500/50 hover:bg-pink-500/5 transition-all group flex flex-col items-center justify-center text-center"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">➕</div>
+                                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600 group-hover:text-pink-500 transition-colors">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                    </div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 group-hover:text-pink-500 transition-colors">New Campaign</p>
                                 </button>
 

@@ -191,6 +191,7 @@ export default function UserManagement() {
                             <tr className="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                                 <th className="px-8 py-6">User</th>
                                 <th className="px-8 py-6">Posts</th>
+                                <th className="px-8 py-6">Dtip</th>
                                 <th className="px-8 py-6">Status</th>
                                 <th className="px-8 py-6">Last Login</th>
                                 <th className="px-8 py-6">Language</th>
@@ -218,6 +219,9 @@ export default function UserManagement() {
                                     </td>
                                     <td className="px-8 py-5">
                                         <p className="text-xs font-black text-pink-500">{user.post_count || 0}</p>
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <p className="text-xs font-black text-amber-500">{user.dtip_balance?.toLocaleString() || 0}</p>
                                     </td>
                                     <td className="px-8 py-5">
                                         <span className={`text-[10px] font-black px-2 py-1 rounded-md tracking-tighter border ${
@@ -362,6 +366,10 @@ export default function UserManagement() {
                                 <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                     <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Posts</span>
                                     <span className="text-xl font-black text-pink-500">{selectedUser.post_count || 0}</span>
+                                </div>
+                                <div className="p-4 bg-zinc-950/50 border border-amber-500/20 rounded-2xl flex flex-col items-center shadow-[0_0_20px_rgba(245,158,11,0.05)]">
+                                    <span className="text-[8px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Dtip Balance</span>
+                                    <span className="text-xl font-black text-amber-500">{selectedUser.dtip_balance?.toLocaleString() || 0}</span>
                                 </div>
                                 <div className="p-4 bg-zinc-950/50 border border-white/5 rounded-2xl flex flex-col items-center">
                                     <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total Likes</span>
