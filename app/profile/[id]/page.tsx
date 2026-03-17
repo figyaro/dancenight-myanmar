@@ -405,7 +405,7 @@ export default function PublicProfile() {
 
                             {userPosts.map((post) => {
                                 const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-                                const isPlaying = playingVideoId === post.id;
+                                const isPlaying = isPlayingVideoId === post.id;
                                 
                                 return (
                                     <div 
