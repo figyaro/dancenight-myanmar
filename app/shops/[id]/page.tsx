@@ -89,7 +89,9 @@ export default function ShopDetail() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [userWallet, setUserWallet] = useState<any>(null);
     const [isMapExpanded, setIsMapExpanded] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'dtip'>('cash');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -106,6 +108,14 @@ export default function ShopDetail() {
                         .eq('id', user.id)
                         .single();
                     if (userData?.language) setLanguage(userData.language);
+
+                    // Fetch User Wallet
+                    const { data: walletData } = await supabase
+                        .from('wallets')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .single();
+                    if (walletData) setUserWallet(walletData);
                 }
 
                 // Fetch Shop Details
@@ -224,6 +234,17 @@ export default function ShopDetail() {
             return;
         }
 
+        const durationHours = 2; // Fixed for now based on UI
+        const totalPrice = (selectedRoom?.price_per_hour || 0) * durationHours;
+        const dtipRequired = Math.ceil(totalPrice / 1000); // 1 dtip = 1000 MMK
+
+        if (paymentMethod === 'dtip') {
+            if (!userWallet || userWallet.balance < dtipRequired) {
+                alert(`Insufficient dtip balance. You need ${dtipRequired} dtip.`);
+                return;
+            }
+        }
+
         if (!isSlotAvailable(startTime, endTime)) {
             alert('This time slot is already booked. Please choose another time.');
             return;
@@ -233,6 +254,19 @@ export default function ShopDetail() {
         try {
             const startDateTime = `${bookingDate}T${startTime}:00Z`;
             const endDateTime = `${bookingDate}T${endTime}:00Z`;
+
+            // If dtip selected, process transaction first
+            if (paymentMethod === 'dtip') {
+                const { data: txSuccess, error: txError } = await supabase.rpc('process_dtip_transaction', {
+                    p_sender_id: currentUser.id,
+                    p_receiver_id: null, // To system/shop
+                    p_amount: dtipRequired,
+                    p_transaction_type: 'payment',
+                    p_reference_type: 'reservation'
+                });
+
+                if (txError || !txSuccess) throw new Error(txError?.message || 'dtip payment failed');
+            }
 
             const { data: reservation, error: resError } = await supabase
                 .from('room_reservations')
@@ -818,13 +852,44 @@ export default function ShopDetail() {
                                 <div>
                                     <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest">Total Estimation</p>
                                     <p className="text-xl font-black text-pink-500">
-                                        {(selectedRoom.price_per_hour * 2).toLocaleString()} <span className="text-[10px] tracking-normal">MMK</span>
+                                        {paymentMethod === 'dtip' ? (
+                                            <>
+                                                {Math.ceil(((selectedRoom.price_per_hour || 0) * 2) / 1000)} <span className="text-[10px] tracking-normal">dtip</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {(selectedRoom.price_per_hour * 2).toLocaleString()} <span className="text-[10px] tracking-normal">MMK</span>
+                                            </>
+                                        )}
                                     </p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Duration</p>
                                     <p className="font-bold">2 Hours</p>
                                 </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Payment Method</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button 
+                                        onClick={() => setPaymentMethod('cash')}
+                                        className={`py-3 rounded-xl border font-black text-[10px] tracking-widest uppercase transition-all ${paymentMethod === 'cash' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/10 opacity-40 hover:opacity-100'}`}
+                                    >
+                                        CASH / MMK
+                                    </button>
+                                    <button 
+                                        onClick={() => setPaymentMethod('dtip')}
+                                        className={`py-3 rounded-xl border font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${paymentMethod === 'dtip' ? 'bg-pink-600 text-white border-pink-500 shadow-lg shadow-pink-900/40' : 'bg-transparent text-white border-white/10 opacity-40 hover:opacity-100'}`}
+                                    >
+                                        <span>🪙</span> pay with dtip
+                                    </button>
+                                </div>
+                                {paymentMethod === 'dtip' && (
+                                    <p className="text-[9px] text-zinc-500 font-bold italic px-2">
+                                        Balance: {userWallet?.balance || 0} dtip (1 dtip = 1,000 MMK)
+                                    </p>
+                                )}
                             </div>
 
                             <button 

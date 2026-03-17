@@ -8,25 +8,31 @@ export default function AdminDashboard() {
         users: 0,
         posts: 0,
         events: 0,
-        reservations: 0
+        reservations: 0,
+        circulation: 0,
+        transactions: 0
     });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [u, p, e, r] = await Promise.all([
+                const [u, p, e, r, w, t] = await Promise.all([
                     supabase.from('users').select('id', { count: 'exact', head: true }),
                     supabase.from('posts').select('id', { count: 'exact', head: true }),
                     supabase.from('events').select('id', { count: 'exact', head: true }),
                     supabase.from('room_reservations').select('id', { count: 'exact', head: true }),
+                    supabase.from('wallets').select('balance'),
+                    supabase.from('dtip_transactions').select('amount')
                 ]);
 
                 setStats({
                     users: u.count || 0,
                     posts: p.count || 0,
                     events: e.count || 0,
-                    reservations: r.count || 0
+                    reservations: r.count || 0,
+                    circulation: (w.data || []).reduce((acc, curr) => acc + curr.balance, 0),
+                    transactions: (t.data || []).length
                 });
             } catch (err) {
                 console.error('Error fetching admin stats:', err);
@@ -43,6 +49,8 @@ export default function AdminDashboard() {
         { label: 'Feed Posts', value: stats.posts, icon: '📝', color: 'from-pink-500/20 to-orange-500/20', border: 'border-pink-500/10' },
         { label: 'Active Events', value: stats.events, icon: '🎉', color: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/10' },
         { label: 'Reservations', value: stats.reservations, icon: '📅', color: 'from-green-500/20 to-emerald-500/20', border: 'border-green-500/10' },
+        { label: 'dtip Circulation', value: stats.circulation, icon: '🪙', color: 'from-amber-500/20 to-orange-500/20', border: 'border-amber-500/10' },
+        { label: 'Transactions', value: stats.transactions, icon: '💸', color: 'from-rose-500/20 to-red-500/20', border: 'border-rose-500/10' },
     ];
 
     return (

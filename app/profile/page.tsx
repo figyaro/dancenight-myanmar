@@ -9,14 +9,18 @@ import { getEffectiveUserId } from '../../lib/auth-util';
 import { supabase } from '../../lib/supabase';
 import { t } from '../../lib/i18n';
 import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl } from '../../lib/bunny';
+import WalletCard from '../components/WalletCard';
+import CoinStore from '../components/CoinStore';
+import TransactionHistory from '../components/TransactionHistory';
 
 export default function Profile() {
     const [profile, setProfile] = useState<any>(null);
     const [dancerData, setDancerData] = useState<any>(null);
     const [userPosts, setUserPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+    const [isPlayingVideoId, setPlayingVideoId] = useState<string | null>(null);
     const [lastTap, setLastTap] = useState<{ id: string, time: number } | null>(null);
+    const [isCoinStoreOpen, setIsCoinStoreOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -172,6 +176,16 @@ export default function Profile() {
                     )}
                 </div>
 
+                {/* dtip Wallet Section */}
+                <div className="mb-6 space-y-6">
+                    <WalletCard onBuyCoins={() => setIsCoinStoreOpen(true)} />
+                    
+                    <div>
+                        <h3 className="text-[10px] font-black tracking-[0.3em] text-zinc-500 uppercase mb-4 px-1">Recent Activity</h3>
+                        <TransactionHistory />
+                    </div>
+                </div>
+
                 {/* 基本情報 */}
                 <div className="liquid-glass p-5 mb-6">
                     <h3 className="text-[10px] font-black text-white/50 tracking-widest uppercase border-b border-white/10 pb-3 mb-4">{t('bio', profile?.language)}</h3>
@@ -289,7 +303,7 @@ export default function Profile() {
 
                             {userPosts.map((post) => {
                                 const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-                                const isPlaying = playingVideoId === post.id;
+                                const isPlaying = isPlayingVideoId === post.id;
                                 
                                 return (
                                     <div 
@@ -368,6 +382,11 @@ export default function Profile() {
             </main>
             </div>
             <BottomNav />
+            
+            <CoinStore 
+                isOpen={isCoinStoreOpen} 
+                onClose={() => setIsCoinStoreOpen(false)} 
+            />
         </div>
     );
 }

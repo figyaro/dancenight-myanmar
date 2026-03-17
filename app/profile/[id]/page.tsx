@@ -11,6 +11,7 @@ import { t } from '../../../lib/i18n';
 import LoadingScreen from '../../components/LoadingScreen';
 import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamHLSUrl } from '../../../lib/bunny';
 import VideoPlayer from '../../components/VideoPlayer';
+import TipModal from '../../components/TipModal';
 
 export default function PublicProfile() {
     const { id } = useParams();
@@ -22,8 +23,9 @@ export default function PublicProfile() {
     const [viewerLanguage, setViewerLanguage] = useState<string | null>('英語');
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [userPosts, setUserPosts] = useState<any[]>([]);
-    const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+    const [isPlayingVideoId, setPlayingVideoId] = useState<string | null>(null);
     const [lastTap, setLastTap] = useState<{ id: string, time: number } | null>(null);
+    const [isTipModalOpen, setIsTipModalOpen] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -316,6 +318,18 @@ export default function PublicProfile() {
                             <span className="relative z-10">MESSAGE</span>
                         </button>
                     </div>
+
+                    {profile?.role === 'dancer' && (
+                        <div className="w-full max-w-[280px] mt-3">
+                            <button
+                                onClick={() => setIsTipModalOpen(true)}
+                                className="w-full py-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-500 border border-amber-500/30 rounded-[1.5rem] font-black text-xs tracking-[0.3em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] group shadow-xl"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="group-hover:scale-125 transition-transform duration-500"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></svg>
+                                <span>GIFT DTIP</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="liquid-glass p-6 mb-6">
@@ -457,6 +471,13 @@ export default function PublicProfile() {
             </main>
             </div>
             <BottomNav />
+            
+            <TipModal
+                isOpen={isTipModalOpen}
+                onClose={() => setIsTipModalOpen(false)}
+                receiverId={profile.id}
+                receiverName={profile.nickname || profile.name || 'Dancer'}
+            />
         </div>
     );
 }

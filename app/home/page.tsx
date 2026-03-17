@@ -13,6 +13,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import VolumeDial from '../components/VolumeDial';
 import { isBunnyStream, getBunnyStreamVideoUrl, getBunnyStreamEmbedUrl, extractBunnyVideoId, isVideo, getBunnyStreamThumbnailUrl, getBunnyStreamHLSUrl } from '../../lib/bunny';
 import VideoPlayer from '../components/VideoPlayer';
+import TipModal from '../components/TipModal';
 
 interface UserProfile {
     nickname: string;
@@ -76,6 +77,7 @@ function HomeFeedContent() {
     // Social Modal State
     const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isTipModalOpen, setIsTipModalOpen] = useState(false);
     const [currentPost, setCurrentPost] = useState<Post | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
@@ -884,6 +886,18 @@ function HomeFeedContent() {
                                 <span className="text-[11px] font-black drop-shadow-md mt-1 text-zinc-300 uppercase tracking-tighter">Share</span>
                             </button>
 
+                            {/* Tip/Gifting */}
+                            <button
+                                onClick={() => { setCurrentPost(post); setIsTipModalOpen(true); }}
+                                className={`flex flex-col items-center group active:scale-90 transition-transform ${activePostId === post.id ? 'animate-icon-entry' : 'opacity-0'}`}
+                                style={{ animationDelay: '0.45s' }}
+                            >
+                                <div className="text-white drop-shadow-lg group-hover:text-pink-500 transition-colors">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></svg>
+                                </div>
+                                <span className="text-[11px] font-black drop-shadow-md mt-1 text-zinc-300 uppercase tracking-tighter">Tip</span>
+                            </button>
+
                             {/* Interaction Button (RSV for Dancers / Message for Users) */}
                             <div
                                 className={`relative flex items-center justify-end w-full min-h-[56px] ${activePostId === post.id ? 'animate-icon-entry' : 'opacity-0'}`}
@@ -1072,6 +1086,17 @@ function HomeFeedContent() {
             )}
 
             <BottomNav />
+
+            {currentPost && (
+                <TipModal
+                    isOpen={isTipModalOpen}
+                    onClose={() => setIsTipModalOpen(false)}
+                    receiverId={currentPost.user_id}
+                    receiverName={currentPost.users?.nickname || currentPost.users?.nickname || 'Dancer'}
+                    referenceType="post"
+                    referenceId={currentPost.id}
+                />
+            )}
         </div>
     );
 }
