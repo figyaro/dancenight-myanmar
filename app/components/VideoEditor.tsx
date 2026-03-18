@@ -333,7 +333,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
     return (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans overflow-hidden select-none">
             {/* Background Studio Pre-loader */}
-            <video ref={thumbVideoRef} src={videoUrl} hidden crossOrigin="anonymous" />
+            <video ref={thumbVideoRef} src={videoUrl} hidden crossOrigin="anonymous" playsInline muted preload="auto" />
             <canvas ref={canvasRef} width={240} height={240} hidden />
 
             {/* Premium Header - Ultra Compact */}
@@ -364,7 +364,11 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                             filter: `brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
                         }}
                         onLoadedMetadata={handleLoadedMetadata}
-                        playsInline muted loop
+                        playsInline 
+                        muted 
+                        loop
+                        autoPlay
+                        preload="auto"
                     />
                     
                     {/* Draggable & Resizable Text System */}

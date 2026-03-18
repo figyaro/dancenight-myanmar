@@ -64,6 +64,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // CASE 1: iOS/Safari Native HLS Support (Highest Priority)
         video.src = url;
+        video.load(); // Explicitly call load for iOS
         video.addEventListener('loadedmetadata', () => {
           setIsLoaded(true);
           if (autoPlay && isPlaying) {
@@ -103,10 +104,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else {
         // CASE 3: Standard fallback (might fail if not supported by browser)
         video.src = url;
+        video.load();
       }
     } else {
       // Standard MP4/WebM video
       video.src = url;
+      video.load();
       setIsLoaded(true);
     }
 
@@ -163,12 +166,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       webkit-playsinline="true"
       x5-video-player-type="h5" // Wide mobile compatibility
       muted={isMuted}
+      autoPlay={autoPlay}
       loop={loop}
       onEnded={onEnded}
       onPlay={onPlay}
       onPause={onPause}
       style={{ objectFit }}
-      preload="metadata"
+      preload="auto"
     />
   );
 };
