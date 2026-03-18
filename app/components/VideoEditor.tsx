@@ -312,15 +312,19 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                 </div>
             </div>
 
-            {/* Bottom Panel System */}
+            {/* Bottom Panel System - Fixed Overflow and Interactions */}
             <div className="relative z-50">
-                {/* Modal Sheets (Floating over video area) - Compact Layout */}
-                <div className="absolute bottom-full left-0 right-0 px-4 pb-4 pointer-events-none">
+                {/* Master Modal Container - Ensuring no vertical/horizontal overflow */}
+                <div className="absolute bottom-full left-0 right-0 px-4 pb-2 pointer-events-none flex flex-col items-center">
+                    
                     {/* Trimmer Sheet */}
-                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] pointer-events-auto ${activeTool === 'trim' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
+                    <div 
+                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'trim' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        style={{ zIndex: activeTool === 'trim' ? 50 : 0 }}
+                    >
                         <div className="space-y-3">
                             <div className="flex justify-between items-center px-1">
-                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Select Performance Segment</span>
+                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Select Segment</span>
                                 <span className="text-[9px] font-black text-pink-500 uppercase tracking-widest">{formatTime(startTime)} – {formatTime(endTime)}</span>
                             </div>
                             <div ref={timelineRef} className="relative h-12 bg-white/5 rounded-xl overflow-hidden border border-white/5 ring-1 ring-white/5">
@@ -341,61 +345,79 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                                     <div 
                                         onMouseDown={(e) => { e.stopPropagation(); startDragging(e, 'start'); }}
                                         onTouchStart={(e) => { e.stopPropagation(); startDragging(e, 'start'); }}
-                                        className="absolute -left-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center"
-                                    ><div className="w-1 h-5 bg-white/60 rounded-full" /></div>
+                                        className="absolute -left-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center cursor-ew-resize"
+                                    ><div className="w-1 h-5 bg-white/80 rounded-full" /></div>
                                     <div 
                                         onMouseDown={(e) => { e.stopPropagation(); startDragging(e, 'end'); }}
                                         onTouchStart={(e) => { e.stopPropagation(); startDragging(e, 'end'); }}
-                                        className="absolute -right-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center"
-                                    ><div className="w-1 h-5 bg-white/60 rounded-full" /></div>
+                                        className="absolute -right-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center cursor-ew-resize"
+                                    ><div className="w-1 h-5 bg-white/80 rounded-full" /></div>
                                 </div>
                             </div>
-                            <p className="text-[8px] text-zinc-500 text-center uppercase tracking-[0.2em] font-black">Drag handles to trim or center to slide</p>
+                            <p className="text-[8px] text-zinc-500 text-center uppercase tracking-[0.2em] font-black">Drag bridge to slide window</p>
                         </div>
                     </div>
 
                     {/* Filter Sheet */}
-                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-4 bottom-4 pointer-events-auto ${activeTool === 'filter' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
-                         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide snap-x px-1">
+                    <div 
+                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'filter' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        style={{ zIndex: activeTool === 'filter' ? 50 : 0 }}
+                    >
+                         <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide snap-x px-2">
                             {FILTERS.map((f) => (
-                                <button key={f.id} onClick={() => setFilter(f)} className={`flex-shrink-0 flex flex-col items-center gap-2 transition-active snap-center ${filter.id === f.id ? 'opacity-100' : 'opacity-40'}`}>
-                                    <div className={`w-14 h-14 rounded-2xl border-2 transition-all overflow-hidden ${filter.id === f.id ? 'border-pink-500 scale-105 shadow-lg' : 'border-white/10'}`}>
-                                        <div className={`w-full h-full bg-zinc-800 ${f.class}`} />
+                                <button 
+                                    key={f.id} 
+                                    onClick={() => setFilter(f)} 
+                                    className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all snap-center group`}
+                                >
+                                    <div className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center relative overflow-hidden ${filter.id === f.id ? 'border-pink-500 scale-105 shadow-lg shadow-pink-500/20' : 'border-white/10 group-hover:border-white/20'}`}>
+                                        <div className={`absolute inset-0 bg-zinc-800 ${f.class}`} />
+                                        {filter.id === f.id && <div className="absolute inset-0 bg-pink-500/10" />}
                                     </div>
-                                    <span className="text-[9px] font-black uppercase text-white/60">{f.name}</span>
+                                    <span className={`text-[9px] font-black uppercase tracking-tighter transition-colors ${filter.id === f.id ? 'text-pink-500' : 'text-white/40'}`}>{f.name}</span>
                                 </button>
                             ))}
                          </div>
                     </div>
 
                     {/* Text Sheet */}
-                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-4 bottom-4 pointer-events-auto ${activeTool === 'text' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
-                        <div className="space-y-3">
-                            <input 
-                                type="text" placeholder="ADD TEXT OVERLAY..." value={overlayText}
-                                onChange={(e) => setOverlayText(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold placeholder:text-white/20 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-xs"
-                                autoFocus={activeTool === 'text'}
-                            />
-                            <div className="flex justify-center gap-4">
-                                <button onClick={() => setOverlayText('')} className="text-[9px] font-black uppercase text-white/40 hover:text-white">Clear</button>
-                                <button onClick={() => setActiveTool('none')} className="text-[9px] font-black uppercase text-pink-500">Done</button>
+                    <div 
+                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'text' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        style={{ zIndex: activeTool === 'text' ? 50 : 0 }}
+                    >
+                        <div className="space-y-4">
+                            <div className="relative group">
+                                <input 
+                                    type="text" placeholder="TYPE OVERLAY TEXT..." value={overlayText}
+                                    onChange={(e) => setOverlayText(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-[0.2em] text-xs text-center shadow-inner"
+                                    autoFocus={activeTool === 'text'}
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-pink-500/40 uppercase">LIVE</div>
+                            </div>
+                            <div className="flex justify-center gap-6">
+                                <button onClick={() => setOverlayText('')} className="text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors">Clear</button>
+                                <button onClick={() => setActiveTool('none')} className="text-[10px] font-black uppercase text-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)] px-2">Apply</button>
                             </div>
                         </div>
                     </div>
 
                     {/* Speed Sheet */}
-                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-4 bottom-4 pointer-events-auto ${activeTool === 'speed' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
+                    <div 
+                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'speed' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        style={{ zIndex: activeTool === 'speed' ? 50 : 0 }}
+                    >
                         <div className="space-y-4">
-                            <span className="block text-[9px] font-black text-white/20 uppercase tracking-[0.3em] text-center">Video Speed</span>
+                            <span className="block text-[10px] font-black text-white/20 uppercase tracking-[0.4em] text-center">Video Intensity</span>
                             <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
                                 {SPEEDS.map((s) => (
                                     <button 
                                         key={s} 
                                         onClick={() => setSpeed(s)}
-                                        className={`flex-1 py-2 rounded-lg font-black text-[10px] transition-all ${speed === s ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'text-white/40 hover:text-white'}`}
+                                        className={`flex-1 py-3 rounded-lg font-black text-[10px] transition-all ${speed === s ? 'bg-pink-500 text-white shadow-xl shadow-pink-500/20' : 'text-white/40 hover:text-white'}`}
                                     >
-                                        {s}x
+                                        {s === 0.5 ? 'SLOW' : s === 2 ? 'FAST' : 'NORMAL'}
+                                        <div className="text-[8px] opacity-40 mt-0.5">{s}x</div>
                                     </button>
                                 ))}
                             </div>
@@ -403,28 +425,31 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                     </div>
 
                     {/* Adjust Sheet */}
-                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-4 bottom-4 pointer-events-auto ${activeTool === 'adjust' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
-                        <div className="space-y-4">
+                    <div 
+                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'adjust' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        style={{ zIndex: activeTool === 'adjust' ? 50 : 0 }}
+                    >
+                        <div className="space-y-5">
                             {[
                                 { key: 'brightness', label: 'Brightness', min: -0.5, max: 0.5, step: 0.05, icon: 'M12 2v2m0 16v2m10-10h-2M4 12H2m15.071-7.071l-1.414 1.414M7.05 16.95l-1.414 1.414M16.95 16.95l1.414 1.414M7.05 7.05L5.636 5.636' },
                                 { key: 'contrast', label: 'Contrast', min: 0.5, max: 1.5, step: 0.05, icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
                                 { key: 'saturation', label: 'Saturation', min: 0, max: 2, step: 0.1, icon: 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0' }
                             ].map((adj) => (
-                                <div key={adj.key} className="space-y-1">
+                                <div key={adj.key} className="space-y-2">
                                     <div className="flex justify-between items-center px-1">
                                         <div className="flex items-center gap-2">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/40">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-pink-500/40">
                                                 <path d={adj.icon} />
                                             </svg>
-                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{adj.label}</span>
+                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{adj.label}</span>
                                         </div>
-                                        <span className="text-[9px] font-black text-pink-500">{adjustments[adj.key as keyof typeof adjustments]}</span>
+                                        <span className="text-[10px] font-black text-pink-500 tabular-nums">{(adjustments[adj.key as keyof typeof adjustments] * 100).toFixed(0)}%</span>
                                     </div>
                                     <input 
                                         type="range" min={adj.min} max={adj.max} step={adj.step}
                                         value={adjustments[adj.key as keyof typeof adjustments]}
                                         onChange={(e) => setAdjustments({ ...adjustments, [adj.key]: parseFloat(e.target.value) })}
-                                        className="w-full accent-pink-500 h-1 bg-white/10 rounded-full appearance-none outline-none"
+                                        className="w-full h-1 bg-white/5 rounded-full appearance-none outline-none accent-pink-500"
                                     />
                                 </div>
                             ))}
@@ -433,7 +458,8 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                 </div>
 
                 {/* Persistent Tab Navigation Bar - Slimmer */}
-                <div className="bg-zinc-950 px-4 py-3 pb-8 flex justify-around items-center border-t border-white/5 gap-0 overflow-x-auto scrollbar-hide">
+                <div className="bg-zinc-950 px-4 py-3 pb-8 flex justify-around items-center border-t border-white/5 gap-0 relative">
+                    <div className="absolute inset-0 bg-white/[0.02] pointer-events-none" />
                     {[
                         { id: 'trim', label: 'Trim', d: 'M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z' },
                         { id: 'filter', label: 'Filter', d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
