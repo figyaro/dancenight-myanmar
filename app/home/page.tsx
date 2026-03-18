@@ -423,7 +423,7 @@ function HomeFeedContent() {
                 } catch (e) {
                     console.warn("Polling error", e);
                 }
-                setTimeout(pollStatus, 3000);
+                setTimeout(pollStatus, 2000); // Poll every 2 seconds for better responsiveness
             };
 
             pollStatus();
@@ -735,31 +735,62 @@ function HomeFeedContent() {
                                         />
                                     </div>
 
-                                    {/* Video Processing Overlay - Only for Bunny Stream */}
+                                    {/* Video Processing Overlay - Redesigned with Blurred Thumbnail & Pulse */}
                                     {isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false && (
-                                        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
-                                            <div className="relative w-24 h-24 mb-6">
-                                                <svg className="w-full h-full text-zinc-800 -rotate-90" viewBox="0 0 100 100">
-                                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="6" />
-                                                    <circle 
-                                                        cx="50" cy="50" r="45" 
-                                                        fill="none" stroke="#ec4899" 
-                                                        strokeWidth="6" 
-                                                        strokeDasharray="283" 
-                                                        strokeDashoffset={283 - (283 * ((videoStatusMap[post.id]?.encodeProgress || 0) / 100))} 
-                                                        strokeLinecap="round" 
-                                                        className="transition-all duration-700 ease-out shadow-[0_0_15px_rgba(236,72,153,0.5)]" 
-                                                    />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <span className="text-pink-500 font-black text-2xl leading-none">
-                                                        {videoStatusMap[post.id]?.encodeProgress || 0}
-                                                        <span className="text-xs uppercase ml-0.5">%</span>
-                                                    </span>
+                                        <div className="absolute inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center overflow-hidden">
+                                            {/* Blurred Thumbnail Background with Pulse Animation */}
+                                            <div className="absolute inset-0 w-full h-full bg-zinc-900">
+                                                <img 
+                                                    src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
+                                                    className="w-full h-full object-cover blur-3xl opacity-40 scale-110 animate-pulse"
+                                                    onLoad={(e) => (e.currentTarget.style.opacity = '0.4')}
+                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                    alt=""
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80" />
+                                            </div>
+
+                                            {/* Minimalist Progress Indicator */}
+                                            <div className="relative z-10 flex flex-col items-center">
+                                                <div className="w-20 h-20 relative mb-4">
+                                                    <svg className="w-full h-full text-white/5 -rotate-90" viewBox="0 0 100 100">
+                                                        <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="1" />
+                                                        <circle 
+                                                            cx="50" cy="50" r="48" 
+                                                            fill="none" stroke="#ec4899" 
+                                                            strokeWidth="3" 
+                                                            strokeDasharray="301.6" 
+                                                            strokeDashoffset={301.6 - (301.6 * ((videoStatusMap[post.id]?.encodeProgress || 0) / 100))} 
+                                                            strokeLinecap="round" 
+                                                            className="transition-all duration-1000 ease-in-out"
+                                                        />
+                                                    </svg>
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                        <span className="text-white font-black text-xl italic tracking-tighter">
+                                                            {videoStatusMap[post.id]?.encodeProgress || 0}
+                                                            <span className="text-[10px] uppercase ml-0.5 not-italic opacity-50">%</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <h3 className="text-white font-black tracking-[0.3em] text-[10px] uppercase opacity-80">
+                                                        Developing
+                                                    </h3>
+                                                    <div className="flex gap-1">
+                                                        <div className="w-1 h-1 bg-pink-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                                        <div className="w-1 h-1 bg-pink-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                                        <div className="w-1 h-1 bg-pink-500 rounded-full animate-bounce" />
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <h3 className="text-white font-black tracking-widest text-lg uppercase mb-2">Video Processing</h3>
-                                            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse text-center leading-relaxed">Designing the next viral moment...<br/>Get ready to dance.</p>
+                                            
+                                            {/* Reflective Bottom Text */}
+                                            <div className="absolute bottom-12 left-0 right-0 text-center px-8">
+                                                <p className="text-white/20 text-[8px] font-black uppercase tracking-[0.4em] leading-relaxed">
+                                                    Quality optimization in progress
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
 

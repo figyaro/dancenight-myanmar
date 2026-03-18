@@ -97,6 +97,7 @@ export default function PostPage() {
         if (!mediaFile || !caption.trim() || isSubmitting) return;
 
         setIsSubmitting(true);
+        setUploadProgress(1); // Set to 1% immediately to show activity
         setError(null);
 
         try {
