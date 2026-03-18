@@ -14,13 +14,18 @@ const FILTERS = [
     { id: 'none', name: 'Original', class: '' },
     { id: 'vivid', name: 'Vivid', class: 'saturate-[1.5] contrast-[1.1]', ffmpeg: 'eq=saturation=1.5:contrast=1.1' },
     { id: 'noir', name: 'Noir', class: 'grayscale contrast-[1.2]', ffmpeg: 'format=gray,eq=contrast=1.2' },
-    { id: 'warm', name: 'Warm', class: 'sepia-[.3] saturate-[1.2]', ffmpeg: 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=saturation=1.2' },
+    { id: 'vintage', name: 'Vintage', class: 'sepia-[.2] contrast-[1.1] brightness-[1.05] saturate-[.9]', ffmpeg: 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=contrast=1.1:brightness=0.05:saturation=0.9' },
+    { id: 'cinema', name: 'Cinema', class: 'contrast-[1.1] saturate-[1.1] hue-rotate-[-10deg]', ffmpeg: 'eq=contrast=1.1:saturation=1.1,hue=h=-10' },
+    { id: 'dramatic', name: 'Dramatic', class: 'contrast-[1.4] brightness-[0.9] saturate-[0.8]', ffmpeg: 'eq=contrast=1.4:brightness=-0.1:saturation=0.8' },
+    { id: 'sepia', name: 'Sepia', class: 'sepia-[0.8]', ffmpeg: 'sepia=0.8' },
+    { id: 'dreamy', name: 'Dreamy', class: 'brightness-[1.1] saturate-[1.2] blur-[0.5px]', ffmpeg: 'eq=brightness=0.1:saturation=1.2,boxblur=1:1' },
     { id: 'cool', name: 'Cool', class: 'hue-rotate-[180deg] saturate-[0.8]', ffmpeg: 'hue=h=180:s=0.8' },
     { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
 ];
 const SPEEDS = [0.5, 1, 2] as const;
 
 type Tool = 'none' | 'trim' | 'filter' | 'text' | 'speed' | 'adjust';
+type AnimationType = 'none' | 'fade' | 'typewriter' | 'bounce';
 
 interface TextOverlay {
     id: string;
@@ -29,7 +34,12 @@ interface TextOverlay {
     y: number; // 0-100%
     fontSize: number;
     color: string;
+    opacity: number;
     bgColor: string;
+    bgOpacity: number;
+    borderColor: string;
+    borderOpacity: number;
+    animation: AnimationType;
 }
 
 export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps) {
@@ -52,10 +62,13 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     
     const [speed, setSpeed] = useState<0.5 | 1 | 2>(1);
     const [adjustments, setAdjustments] = useState({ brightness: 0, contrast: 1, saturation: 1 });
+    const [textTab, setTextTab] = useState<'text' | 'bg' | 'border' | 'anim'>('text');
     
     // Slider/Draggable state
-    const [isDragging, setIsDragging] = useState<'start' | 'end' | 'bridge' | 'text' | null>(null);
+    const [isDragging, setIsDragging] = useState<'start' | 'end' | 'bridge' | 'text' | 'resize' | null>(null);
     const [dragStartX, setDragStartX] = useState(0);
+    const [dragStartY, setDragStartY] = useState(0);
+    const [dragStartFontSize, setDragStartFontSize] = useState(0);
     const [dragStartTimes, setDragStartTimes] = useState({ start: 0, end: 0 });
 
     const ffmpegRef = useRef(new FFmpeg());
@@ -143,17 +156,19 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     };
 
     // --- Dragging Logic (Unified) ---
-    const startDragging = (e: React.MouseEvent | React.TouchEvent, type: 'start' | 'end' | 'bridge' | 'text', id?: string) => {
+    const startDragging = (e: React.MouseEvent | React.TouchEvent, type: 'start' | 'end' | 'bridge' | 'text' | 'resize', id?: string) => {
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         setIsDragging(type);
         setDragStartX(clientX);
         setDragStartY(clientY);
         setDragStartTimes({ start: startTime, end: endTime });
-        if (id) setSelectedTextId(id);
+        if (id) {
+            setSelectedTextId(id);
+            const overlay = overlays.find(o => o.id === id);
+            if (overlay) setDragStartFontSize(overlay.fontSize);
+        }
     };
-
-    const [dragStartY, setDragStartY] = useState(0);
 
     useEffect(() => {
         const handleMove = (e: MouseEvent | TouchEvent) => {
@@ -166,6 +181,14 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                 const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
                 const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
                 setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, x, y } : o));
+                return;
+            }
+
+            if (isDragging === 'resize' && selectedTextId) {
+                const deltaX = clientX - dragStartX;
+                const deltaY = clientY - dragStartY;
+                const delta = Math.max(deltaX, deltaY);
+                setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, fontSize: Math.max(12, Math.min(200, dragStartFontSize + delta)) } : o));
                 return;
             }
 
@@ -210,7 +233,7 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             window.removeEventListener('touchmove', handleMove);
             window.removeEventListener('touchend', stopDragging);
         };
-    }, [isDragging, dragStartX, dragStartTimes, startTime, endTime, duration]);
+    }, [isDragging, dragStartX, dragStartY, dragStartFontSize, dragStartTimes, startTime, endTime, duration, selectedTextId, overlays]);
 
     const handleProcess = async () => {
         if (!ffmpegLoaded) { onSave(file); return; }
@@ -238,10 +261,23 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                 const fontArg = nodes.some(node => node.name === 'font.ttf') ? ':fontfile=font.ttf' : '';
                 
                 for (const o of overlays) {
-                    // Convert % to px (approx based on video size, w/h are available tags in FFmpeg)
-                    // drawtext x/y can use w/h variables.
-                    const boxArgs = o.bgColor !== 'transparent' ? `:box=1:boxcolor=${o.bgColor}@0.6:boxborderw=10` : '';
-                    vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}:fontsize=${o.fontSize}${fontArg}:x=(w-text_w)*${o.x/100}:y=(h-text_h)*${o.y/100}${boxArgs}`);
+                    const alpha = o.opacity;
+                    const boxArgs = o.bgOpacity > 0 ? `:box=1:boxcolor=${o.bgColor}@${o.bgOpacity}:boxborderw=10` : '';
+                    const borderArgs = o.borderOpacity > 0 ? `:borderw=2:bordercolor=${o.borderColor}@${o.borderOpacity}` : '';
+                    
+                    let xExpr = `(w-text_w)*${o.x/100}`;
+                    let yExpr = `(h-text_h)*${o.y/100}`;
+                    let alphaExpr = `${alpha}`;
+
+                    if (o.animation === 'fade') {
+                        alphaExpr = `min(${alpha},t/1)`; // 1s fade in
+                    } else if (o.animation === 'bounce') {
+                        yExpr = `(h-text_h)*${o.y/100} + sin(t*5)*30`;
+                    } else if (o.animation === 'typewriter') {
+                        // Sequential character appearance (approx)
+                        alphaExpr = `if(gt(t,0.3),${alpha},0)`; 
+                    }
+vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaExpr}:fontsize=${o.fontSize}${fontArg}:x=${xExpr}:y=${yExpr}${boxArgs}${borderArgs}`);
                 }
             }
             
@@ -282,8 +318,13 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             x: 50,
             y: 50,
             fontSize: 40,
-            color: 'white',
+            color: '#ffffff',
+            opacity: 1,
             bgColor: '#ec4899',
+            bgOpacity: 0.8,
+            borderColor: '#000000',
+            borderOpacity: 0,
+            animation: 'none',
         };
         setOverlays([...overlays, newText]);
         setSelectedTextId(newText.id);
@@ -296,25 +337,25 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             <canvas ref={canvasRef} width={240} height={240} hidden />
 
             {/* Premium Header - Ultra Compact */}
-            <div className="flex justify-between items-center px-4 pt-4 pb-2 relative z-50">
-                <button onClick={onCancel} className="text-white/40 hover:text-white px-2 text-[10px] font-black uppercase tracking-widest active:scale-90 transition-all">
+            <div className="flex justify-between items-center px-4 pt-2 pb-1 relative z-50">
+                <button onClick={onCancel} className="text-white/40 hover:text-white px-2 text-[9px] font-black uppercase tracking-widest active:scale-90 transition-all">
                     Cancel
                 </button>
                 <div className="flex flex-col items-center">
-                    <span className="text-[7px] font-black text-pink-500 uppercase tracking-[0.4em] mb-0.5">Dance Studio Pro</span>
-                    <h2 className="text-[10px] font-black text-white uppercase tracking-widest">{formatTime(endTime - startTime)}</h2>
+                    <span className="text-[6px] font-black text-pink-500 uppercase tracking-[0.4em]">Studio Pro</span>
+                    <h2 className="text-[10px] font-black text-white uppercase tracking-widest leading-tight">{formatTime(endTime - startTime)}</h2>
                 </div>
                 <button 
                     onClick={handleProcess} 
-                    className="bg-white text-black font-black px-4 py-2 rounded-lg text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-xl"
+                    className="bg-white text-black font-black px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-widest active:scale-95 transition-all shadow-xl"
                 >
                     {isProcessing ? 'Saving...' : 'Finish'}
                 </button>
             </div>
 
-            {/* Fixed Aspect-Ratio Video Stage - Expanded */}
-            <div className="flex-1 relative flex items-center justify-center p-2 pt-0 min-h-0">
-                <div ref={stageRef} className="relative max-h-[55vh] lg:max-h-full aspect-[9/16] bg-zinc-900/50 rounded-[2rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5">
+            {/* Fixed Aspect-Ratio Video Stage - Maximized */}
+            <div className="flex-1 relative flex items-center justify-center p-1 pt-0 min-h-0">
+                <div ref={stageRef} className="relative max-h-[60vh] lg:max-h-full aspect-[9/16] bg-zinc-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5">
                     <video 
                         ref={videoRef}
                         src={videoUrl} 
@@ -326,31 +367,43 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                         playsInline muted loop
                     />
                     
-                    {/* Draggable Text System */}
+                    {/* Draggable & Resizable Text System */}
                     {overlays.map((o) => (
                         <div 
                             key={o.id}
                             onMouseDown={(e) => startDragging(e, 'text', o.id)}
                             onTouchStart={(e) => startDragging(e, 'text', o.id)}
-                            className={`absolute cursor-move select-none transition-transform active:scale-105 ${selectedTextId === o.id ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-transparent' : ''}`}
+                            className={`absolute select-none transition-all ${selectedTextId === o.id ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-transparent cursor-move' : 'cursor-pointer hover:scale-105'}`}
                             style={{ 
                                 left: `${o.x}%`, 
                                 top: `${o.y}%`, 
                                 transform: 'translate(-50%, -50%)',
-                                zIndex: selectedTextId === o.id ? 100 : 10
+                                zIndex: selectedTextId === o.id ? 100 : 10,
+                                opacity: o.animation === 'fade' && selectedTextId !== o.id ? (selectedTextId === o.id ? 1 : 0.7) : 1,
                             }}
                         >
                             <div 
-                                className="px-3 py-1.5 font-black uppercase tracking-wider whitespace-nowrap rounded-lg shadow-2xl transition-all"
+                                className={`px-4 py-2 font-black uppercase tracking-wider whitespace-nowrap rounded-lg shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all ${o.animation === 'bounce' && selectedTextId !== o.id ? 'animate-bounce' : ''} ${o.animation === 'fade' ? 'animate-in fade-in duration-1000' : ''}`}
                                 style={{ 
-                                    backgroundColor: o.bgColor, 
-                                    color: o.color, 
+                                    backgroundColor: o.bgOpacity > 0 ? o.bgColor + Math.floor(o.bgOpacity * 255).toString(16).padStart(2, '0') : 'transparent', 
+                                    color: o.color + Math.floor(o.opacity * 255).toString(16).padStart(2, '0'), 
                                     fontSize: `${o.fontSize}px`,
-                                    opacity: selectedTextId === o.id ? 1 : 0.8
+                                    border: o.borderOpacity > 0 ? `2px solid ${o.borderColor + Math.floor(o.borderOpacity * 255).toString(16).padStart(2, '0')}` : 'none'
                                 }}
                             >
                                 {o.text}
                             </div>
+                            
+                            {/* Resize Handle */}
+                            {selectedTextId === o.id && (
+                                <div 
+                                    onMouseDown={(e) => { e.stopPropagation(); startDragging(e, 'resize', o.id); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); startDragging(e, 'resize', o.id); }}
+                                    className="absolute -right-3 -bottom-3 w-7 h-7 bg-pink-500 rounded-full border-2 border-white flex items-center justify-center cursor-nwse-resize shadow-xl active:scale-125 transition-transform"
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                </div>
+                            )}
                         </div>
                     ))}
 
@@ -455,71 +508,117 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                     </div>
 
                     <div 
-                        className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[2rem] border border-white/10 p-5 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'text' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        className={`w-full max-w-lg bg-zinc-900/98 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 p-6 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'text' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
                         style={{ zIndex: activeTool === 'text' ? 50 : 0 }}
                     >
-                        <div className="space-y-5">
+                        <div className="space-y-6">
                             {!selectedTextId ? (
                                 <button 
                                     onClick={addText}
-                                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-pink-600/20 active:scale-95 transition-all text-xs tracking-widest uppercase"
+                                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-pink-600/20 active:scale-95 transition-all text-sm tracking-widest uppercase"
                                 >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                                    Add New Text
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                                    Add New Overlay
                                 </button>
                             ) : (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            value={overlays.find(o => o.id === selectedTextId)?.text || ''}
-                                            onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, text: e.target.value } : o))}
-                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-xs"
-                                            placeholder="EDIT TEXT..."
-                                            autoFocus
-                                        />
-                                        <button 
-                                            onClick={() => {
-                                                setOverlays(prev => prev.filter(o => o.id !== selectedTextId));
-                                                setSelectedTextId(null);
-                                            }}
-                                            className="bg-zinc-800 hover:bg-red-600/20 border border-white/10 p-3 rounded-xl transition-all group"
-                                        >
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white group-hover:text-red-500 transition-colors"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] px-1">Size</span>
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-400">
+                                    {/* Pro Input Header */}
+                                    <div className="flex gap-3 items-center">
+                                        <div className="flex-1 relative group">
                                             <input 
-                                                type="range" min="12" max="100" 
-                                                value={overlays.find(o => o.id === selectedTextId)?.fontSize || 40}
-                                                onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, fontSize: parseInt(e.target.value) } : o))}
-                                                className="w-full h-1 bg-white/10 rounded-full appearance-none outline-none accent-pink-500"
+                                                type="text" 
+                                                value={overlays.find(o => o.id === selectedTextId)?.text || ''}
+                                                onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, text: e.target.value } : o))}
+                                                className="w-full bg-white/5 border-2 border-white/10 rounded-2xl px-5 py-4 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-sm shadow-inner"
+                                                placeholder="ENTER CAPTION..."
+                                                autoFocus
                                             />
                                         </div>
-                                        <div className="space-y-2 text-right">
+                                        <div className="flex gap-2">
                                             <button 
                                                 onClick={() => setSelectedTextId(null)}
-                                                className="text-[10px] font-black text-white/40 hover:text-white uppercase tracking-widest px-2"
+                                                className="bg-green-500 text-white p-4 rounded-2xl shadow-lg shadow-green-500/20 active:scale-90 transition-all"
                                             >
-                                                Done
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    setOverlays(prev => prev.filter(o => o.id !== selectedTextId));
+                                                    setSelectedTextId(null);
+                                                }}
+                                                className="bg-zinc-800 text-red-500 p-4 rounded-2xl border border-white/10 active:scale-90 transition-all"
+                                            >
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                             </button>
                                         </div>
                                     </div>
-
-                                    <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-                                        {['#ec4899', '#000000', '#ffffff', '#3b82f6', '#22c55e', '#f59e0b', 'transparent'].map(color => (
+                                    
+                                    {/* Styling Tabs */}
+                                    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                                        {(['text', 'bg', 'border', 'anim'] as const).map(tab => (
                                             <button 
-                                                key={color}
-                                                onClick={() => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, bgColor: color } : o))}
-                                                className={`w-8 h-8 rounded-lg border-2 transition-all flex-shrink-0 ${overlays.find(o => o.id === selectedTextId)?.bgColor === color ? 'border-pink-500 scale-110' : 'border-white/10'}`}
-                                                style={{ backgroundColor: color === 'transparent' ? 'white' : color }}
+                                                key={tab}
+                                                onClick={() => setTextTab(tab)}
+                                                className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${textTab === tab ? 'bg-zinc-800 text-pink-500 shadow-xl' : 'text-white/40 hover:text-white'}`}
                                             >
-                                                {color === 'transparent' && <div className="w-full h-full bg-[linear-gradient(45deg,#ccc_25%,transparent_25%,transparent_50%,#ccc_50%,#ccc_75%,transparent_75%,transparent)] bg-[length:4px_4px]" />}
+                                                {tab}
                                             </button>
                                         ))}
+                                    </div>
+
+                                    {/* Tab Content */}
+                                    <div className="space-y-6 px-1">
+                                        {textTab !== 'anim' ? (
+                                            <>
+                                                <div className="space-y-3">
+                                                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Color Palette</span>
+                                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+                                                        {['#ffffff', '#000000', '#ec4899', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ef4444'].map(color => {
+                                                            const current = overlays.find(o => o.id === selectedTextId);
+                                                            const isActive = textTab === 'text' ? current?.color === color : textTab === 'bg' ? current?.bgColor === color : current?.borderColor === color;
+                                                            return (
+                                                                <button 
+                                                                    key={color}
+                                                                    onClick={() => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { 
+                                                                        ...o, 
+                                                                        [textTab === 'text' ? 'color' : textTab === 'bg' ? 'bgColor' : 'borderColor']: color 
+                                                                    } : o))}
+                                                                    className={`w-10 h-10 rounded-[1rem] border-2 transition-all flex-shrink-0 snap-center ${isActive ? 'border-pink-500 scale-110 shadow-lg shadow-pink-500/30' : 'border-white/10'}`}
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Opacity</span>
+                                                        <span className="text-xs font-black text-pink-500">{Math.round((overlays.find(o => o.id === selectedTextId)?.[textTab === 'text' ? 'opacity' : textTab === 'bg' ? 'bgOpacity' : 'borderOpacity'] || 0) * 100)}%</span>
+                                                    </div>
+                                                    <input 
+                                                        type="range" min="0" max="1" step="0.01"
+                                                        value={overlays.find(o => o.id === selectedTextId)?.[textTab === 'text' ? 'opacity' : textTab === 'bg' ? 'bgOpacity' : 'borderOpacity'] || 0}
+                                                        onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { 
+                                                            ...o, 
+                                                            [textTab === 'text' ? 'opacity' : textTab === 'bg' ? 'bgOpacity' : 'borderOpacity']: parseFloat(e.target.value) 
+                                                        } : o))}
+                                                        className="w-full h-1.5 bg-white/10 rounded-full appearance-none outline-none accent-pink-500"
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-3 pb-2">
+                                                {(['none', 'fade', 'bounce', 'typewriter'] as const).map(anim => (
+                                                    <button 
+                                                        key={anim}
+                                                        onClick={() => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, animation: anim } : o))}
+                                                        className={`py-4 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${overlays.find(o => o.id === selectedTextId)?.animation === anim ? 'border-pink-500 bg-pink-500/10 text-white shadow-xl' : 'border-white/5 bg-white/5 text-white/40 hover:text-white'}`}
+                                                    >
+                                                        {anim}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -530,9 +629,9 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                                         <button 
                                             key={o.id}
                                             onClick={() => setSelectedTextId(o.id)}
-                                            className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-black text-white/60 uppercase whitespace-nowrap"
+                                            className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white/60 uppercase whitespace-nowrap active:scale-95 transition-all"
                                         >
-                                            #{i + 1}: {o.text.substring(0, 8)}...
+                                            #{i + 1}: {o.text.substring(0, 10)}{o.text.length > 10 ? '...' : ''}
                                         </button>
                                     ))}
                                 </div>
