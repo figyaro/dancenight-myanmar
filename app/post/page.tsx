@@ -17,6 +17,8 @@ export default function PostPage() {
 
     // Form state
     const [mediaFile, setMediaFile] = useState<File | null>(null);
+    const [rawVideoFile, setRawVideoFile] = useState<File | null>(null);
+    const [showEditor, setShowEditor] = useState(false);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
     const [caption, setCaption] = useState('');
@@ -69,23 +71,8 @@ export default function PostPage() {
         const file = e.target.files?.[0];
         if (file) {
             if (file.type.startsWith('video/')) {
-                const video = document.createElement('video');
-                video.preload = 'metadata';
-                video.onloadedmetadata = function() {
-                    window.URL.revokeObjectURL(video.src);
-                    if (video.duration > 15.5) { // Allowing a small buffer
-                        setError('Videos longer than 15 seconds cannot be uploaded currently. Please select a video within 15 seconds.');
-                        setMediaFile(null);
-                        setMediaPreview(null);
-                        setMediaType(null);
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                    } else {
-                        setMediaFile(file);
-                        setMediaType('video');
-                        setMediaPreview(URL.createObjectURL(file));
-                    }
-                };
-                video.src = URL.createObjectURL(file);
+                setRawVideoFile(file);
+                setShowEditor(true);
             } else {
                 setMediaFile(file);
                 setMediaType('image');
@@ -96,6 +83,13 @@ export default function PostPage() {
                 reader.readAsDataURL(file);
             }
         }
+    };
+
+    const handleVideoEdited = (editedFile: File) => {
+        setMediaFile(editedFile);
+        setMediaType('video');
+        setMediaPreview(URL.createObjectURL(editedFile));
+        setShowEditor(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +149,14 @@ export default function PostPage() {
         }
     };
 
+    const [VideoEditor, setVideoEditor] = useState<any>(null);
+
+    useEffect(() => {
+        if (showEditor) {
+            import('../components/VideoEditor').then(mod => setVideoEditor(() => mod.default));
+        }
+    }, [showEditor]);
+
     if (loading) {
         return (
             <div className="bg-black min-h-screen text-white flex items-center justify-center">
@@ -165,6 +167,19 @@ export default function PostPage() {
 
     return (
         <div className="bg-black min-h-screen text-white">
+            {/* FFmpeg Video Editor Overlay */}
+            {showEditor && rawVideoFile && VideoEditor && (
+                <VideoEditor 
+                    file={rawVideoFile} 
+                    onSave={handleVideoEdited}
+                    onCancel={() => {
+                        setShowEditor(false);
+                        setRawVideoFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                />
+            )}
+
             {/* Header */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur border-b border-zinc-800">
                 <div className="max-w-md mx-auto flex items-center justify-between px-4 py-4">
