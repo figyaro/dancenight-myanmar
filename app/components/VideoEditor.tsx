@@ -11,16 +11,16 @@ interface VideoEditorProps {
 }
 
 const FILTERS = [
-    { id: 'none', name: 'Original', class: '' },
-    { id: 'vivid', name: 'Vivid', class: 'saturate-[1.5] contrast-[1.1]', ffmpeg: 'eq=saturation=1.5:contrast=1.1' },
-    { id: 'noir', name: 'Noir', class: 'grayscale contrast-[1.2]', ffmpeg: 'format=gray,eq=contrast=1.2' },
-    { id: 'vintage', name: 'Vintage', class: 'sepia-[.2] contrast-[1.1] brightness-[1.05] saturate-[.9]', ffmpeg: 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=contrast=1.1:brightness=0.05:saturation=0.9' },
-    { id: 'cinema', name: 'Cinema', class: 'contrast-[1.1] saturate-[1.1] hue-rotate-[-10deg]', ffmpeg: 'eq=contrast=1.1:saturation=1.1,hue=h=-10' },
-    { id: 'dramatic', name: 'Dramatic', class: 'contrast-[1.4] brightness-[0.9] saturate-[0.8]', ffmpeg: 'eq=contrast=1.4:brightness=-0.1:saturation=0.8' },
-    { id: 'sepia', name: 'Sepia', class: 'sepia-[0.8]', ffmpeg: 'sepia=0.8' },
-    { id: 'dreamy', name: 'Dreamy', class: 'brightness-[1.1] saturate-[1.2] blur-[0.5px]', ffmpeg: 'eq=brightness=0.1:saturation=1.2,boxblur=1:1' },
-    { id: 'cool', name: 'Cool', class: 'hue-rotate-[180deg] saturate-[0.8]', ffmpeg: 'hue=h=180:s=0.8' },
-    { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
+    { id: 'none', name: 'Original', class: '', style: '' },
+    { id: 'vivid', name: 'Vivid', class: 'saturate-[1.5] contrast-[1.1]', style: 'saturate(1.5) contrast(1.1)', ffmpeg: 'eq=saturation=1.5:contrast=1.1' },
+    { id: 'noir', name: 'Noir', class: 'grayscale contrast-[1.2]', style: 'grayscale(1) contrast(1.2)', ffmpeg: 'format=gray,eq=contrast=1.2' },
+    { id: 'vintage', name: 'Vintage', class: 'sepia-[.2] contrast-[1.1] brightness-[1.05] saturate-[.9]', style: 'sepia(0.2) contrast(1.1) brightness(1.05) saturate(0.9)', ffmpeg: 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=contrast=1.1:brightness=0.05:saturation=0.9' },
+    { id: 'cinema', name: 'Cinema', class: 'contrast-[1.1] saturate-[1.1] hue-rotate-[-10deg]', style: 'contrast(1.1) saturate(1.1) hue-rotate(-10deg)', ffmpeg: 'eq=contrast=1.1:saturation=1.1,hue=h=-10' },
+    { id: 'dramatic', name: 'Dramatic', class: 'contrast-[1.4] brightness-[0.9] saturate-[0.8]', style: 'contrast(1.4) brightness(0.9) saturate(0.8)', ffmpeg: 'eq=contrast=1.4:brightness=-0.1:saturation=0.8' },
+    { id: 'sepia', name: 'Sepia', class: 'sepia-[0.8]', style: 'sepia(0.8)', ffmpeg: 'sepia=0.8' },
+    { id: 'dreamy', name: 'Dreamy', class: 'brightness-[1.1] saturate-[1.2] blur-[0.5px]', style: 'brightness(1.1) saturate(1.2) blur(0.5px)', ffmpeg: 'eq=brightness=0.1:saturation=1.2,boxblur=1:1' },
+    { id: 'cool', name: 'Cool', class: 'hue-rotate-[180deg] saturate-[0.8]', style: 'hue-rotate(180deg) saturate(0.8)', ffmpeg: 'hue=h=180:s=0.8' },
+    { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', style: 'opacity(0.9) contrast(0.9) brightness(0.95)', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
 ];
 const SPEEDS = [0.5, 1, 2] as const;
 
@@ -359,9 +359,9 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                     <video 
                         ref={videoRef}
                         src={videoUrl} 
-                        className={`w-full h-full object-contain transition-all duration-300 ${filter.class}`}
+                        className={`w-full h-full object-contain transition-all duration-300`}
                         style={{
-                            filter: `brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
+                            filter: `${filter.style} brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
                         }}
                         onLoadedMetadata={handleLoadedMetadata}
                         playsInline 
@@ -501,7 +501,14 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                     <div className={`w-16 h-16 rounded-[1.2rem] border-[2.5px] transition-all flex items-center justify-center relative overflow-hidden ${filter.id === f.id ? 'border-pink-500 scale-105 shadow-xl shadow-pink-500/30' : 'border-white/10 group-hover:border-white/20'}`}>
                                         {/* Filter Thumbnail with real CSS effect */}
                                         <div className="absolute inset-0 bg-zinc-800">
-                                           {thumbnails[2] && <img src={thumbnails[2]} className={`w-full h-full object-cover opacity-60 ${f.class}`} alt="" />}
+                                           {thumbnails[2] && (
+                                                <img 
+                                                    src={thumbnails[2]} 
+                                                    className="w-full h-full object-cover opacity-60" 
+                                                    style={{ filter: f.style }}
+                                                    alt="" 
+                                                />
+                                            )}
                                         </div>
                                         <div className={`absolute inset-0 bg-black/20 ${filter.id === f.id ? 'opacity-0' : 'opacity-100'}`} />
                                     </div>
