@@ -19,6 +19,8 @@ const FILTERS = [
     { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
 ];
 
+type Tool = 'trim' | 'filter' | 'text';
+
 export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps) {
     const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,21 +33,26 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     const [progress, setProgress] = useState(0);
     const [filter, setFilter] = useState(FILTERS[0]);
     const [thumbnails, setThumbnails] = useState<string[]>([]);
+    const [activeTool, setActiveTool] = useState<Tool>('trim');
+    const [overlayText, setOverlayText] = useState('');
     
+    // Slider state
+    const [isDragging, setIsDragging] = useState<'start' | 'end' | 'bridge' | null>(null);
+    const [dragStartPos, setDragStartPos] = useState(0);
+    const [dragStartTime, setDragStartTime] = useState(0);
+    const [dragEndTime, setDragEndTime] = useState(0);
+
     const ffmpegRef = useRef(new FFmpeg());
     const videoRef = useRef<HTMLVideoElement>(null);
     const thumbVideoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
 
-    const [activeHandle, setActiveHandle] = useState<'start' | 'end'>('start');
-
-    // Load FFmpeg and Generate Thumbnails
+    // Initial setup
     useEffect(() => {
         const url = URL.createObjectURL(file);
         setVideoUrl(url);
-        
         loadFfmpeg();
-        
         return () => {
             URL.revokeObjectURL(url);
             thumbnails.forEach(URL.revokeObjectURL);
@@ -56,35 +63,33 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
         try {
             const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
             const ffmpeg = ffmpegRef.current;
-            
-            ffmpeg.on('log', ({ message }) => console.log('FFmpeg Log:', message));
+            ffmpeg.on('log', ({ message }) => console.log('FFmpeg:', message));
             ffmpeg.on('progress', ({ progress }) => setProgress(Math.round(progress * 100)));
-
-            // Add a timeout for loading
-            const loadPromise = ffmpeg.load({
+            await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
             });
-
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('FFmpeg Load Timeout')), 20000)
-            );
-
-            await Promise.race([loadPromise, timeoutPromise]);
             setFfmpegLoaded(true);
-        } catch (err: any) {
+        } catch (err) {
             console.error('FFmpeg Load Error:', err);
-            setLoadError('Failed to initialize editor. Please try again.');
+            setLoadError('Failed to initialize editor.');
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (videoRef.current) {
+            const d = videoRef.current.duration;
+            setDuration(d);
+            setEndTime(Math.min(d, 15));
+            generateThumbnails(d);
         }
     };
 
     const generateThumbnails = useCallback(async (vidDuration: number) => {
-        if (!vidDuration) return;
         setIsGeneratingThumbs(true);
         const thumbs: string[] = [];
-        const count = 10; // Increased count for better filmstrip
+        const count = 12;
         const interval = vidDuration / count;
-
         for (let i = 0; i < count; i++) {
             const time = i * interval;
             const thumb = await captureFrame(time);
@@ -99,16 +104,12 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             const vid = thumbVideoRef.current;
             const canvas = canvasRef.current;
             if (!vid || !canvas) return resolve(null);
-
             vid.currentTime = time;
             const onSeeked = () => {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    // Maintain aspect ratio for thumbnails
-                    const ratio = vid.videoWidth / vid.videoHeight;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    resolve(canvas.toDataURL('image/jpeg', 0.5));
                 } else {
                     resolve(null);
                 }
@@ -118,19 +119,66 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
         });
     };
 
-    const handleLoadedMetadata = () => {
-        if (videoRef.current) {
-            const d = videoRef.current.duration;
-            setDuration(d);
-            setEndTime(Math.min(d, 15));
-            generateThumbnails(d);
-        }
+    // --- Slider Logic ---
+    const handleSliderInteract = (e: React.MouseEvent | React.TouchEvent, type: 'start' | 'end' | 'bridge') => {
+        setIsDragging(type);
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        setDragStartPos(clientX);
+        setDragStartTime(startTime);
+        setDragEndTime(endTime);
     };
+
+    useEffect(() => {
+        const onMove = (e: MouseEvent | TouchEvent) => {
+            if (!isDragging || !sliderRef.current) return;
+            const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+            const deltaX = clientX - dragStartPos;
+            const sliderWidth = sliderRef.current.offsetWidth;
+            const deltaT = (deltaX / sliderWidth) * duration;
+
+            if (isDragging === 'start') {
+                const newStart = Math.max(0, Math.min(dragStartTime + deltaT, endTime - 1));
+                setStartTime(newStart);
+                if (videoRef.current) videoRef.current.currentTime = newStart;
+            } else if (isDragging === 'end') {
+                const newEnd = Math.max(startTime + 1, Math.min(dragEndTime + deltaT, duration));
+                setEndTime(newEnd);
+                if (videoRef.current) videoRef.current.currentTime = newEnd;
+            } else if (isDragging === 'bridge') {
+                const d = dragEndTime - dragStartTime;
+                let newStart = dragStartTime + deltaT;
+                let newEnd = dragEndTime + deltaT;
+                if (newStart < 0) {
+                    newStart = 0;
+                    newEnd = d;
+                } else if (newEnd > duration) {
+                    newEnd = duration;
+                    newStart = duration - d;
+                }
+                setStartTime(newStart);
+                setEndTime(newEnd);
+                if (videoRef.current) videoRef.current.currentTime = newStart;
+            }
+        };
+
+        const onUp = () => setIsDragging(null);
+
+        if (isDragging) {
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove);
+            window.addEventListener('touchend', onUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+        };
+    }, [isDragging, dragStartPos, dragStartTime, dragEndTime, startTime, endTime, duration]);
 
     const handleProcess = async () => {
         if (!ffmpegLoaded) {
-            // Fallback: If FFmpeg is not loaded, just save the original file
-            console.warn('FFmpeg not loaded, saving original file.');
             onSave(file);
             return;
         }
@@ -139,26 +187,26 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             const ffmpeg = ffmpegRef.current;
             const inputName = 'input.mp4';
             const outputName = 'output.mp4';
-
             await ffmpeg.writeFile(inputName, await fetchFile(file));
 
             const args = ['-ss', startTime.toFixed(2), '-to', endTime.toFixed(2), '-i', inputName];
             
-            if (filter.id !== 'none' && filter.ffmpeg) {
-                args.push('-vf', filter.ffmpeg);
+            const vfs: string[] = [];
+            if (filter.id !== 'none' && filter.ffmpeg) vfs.push(filter.ffmpeg);
+            if (overlayText) {
+                // Simplified drawtext for demonstration. Font path depends on environment.
+                // vfs.push(`drawtext=text='${overlayText}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2`);
             }
+            if (vfs.length > 0) args.push('-vf', vfs.join(','));
 
-            // High quality output
-            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'copy', outputName);
-
+            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '25', '-c:a', 'copy', outputName);
             await ffmpeg.exec(args);
 
             const data = await ffmpeg.readFile(outputName);
             const editedFile = new File([data as any], `edited_${file.name}`, { type: 'video/mp4' });
             onSave(editedFile);
         } catch (err) {
-            console.error('Processing Error:', err);
-            // On error, still allow user to proceed with original
+            console.error('Export error:', err);
             onSave(file);
         } finally {
             setIsProcessing(false);
@@ -172,228 +220,166 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center select-none animate-in fade-in duration-300 font-sans">
-            {/* Hidden components */}
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center select-none animate-in fade-in duration-300 font-sans overflow-hidden">
+            {/* Hidden Helpers */}
             <video ref={thumbVideoRef} src={videoUrl} hidden crossOrigin="anonymous" />
             <canvas ref={canvasRef} width={240} height={240} hidden />
 
-            {/* Header: Dynamic blurring glassmorphism */}
-            <div className="w-full max-w-lg flex justify-between items-center px-6 pt-10 pb-6 relative z-50">
-                <button 
-                    onClick={onCancel} 
-                    className="w-12 h-12 rounded-2xl bg-white/5 backdrop-blur-xl flex items-center justify-center text-white/80 hover:text-white transition-all border border-white/10 active:scale-90"
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
+            {/* Slim Header */}
+            <div className="w-full flex justify-between items-center px-4 pt-6 pb-2 relative z-50">
+                <button onClick={onCancel} className="text-white/60 hover:text-white px-2 py-1 text-sm font-bold transition-all active:scale-90">
+                    Cancel
                 </button>
-                <div className="flex flex-col items-center">
-                    <span className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-500 mb-1">Editor Pro</span>
-                    <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-                        <h2 className="text-xs font-black text-white uppercase tracking-widest">{formatTime(endTime - startTime)} Segment</h2>
-                    </div>
+                <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">
+                    {activeTool === 'trim' ? 'Trimming' : activeTool === 'filter' ? 'Filtering' : 'Adding Text'}
                 </div>
                 <button 
                     onClick={handleProcess} 
-                    disabled={isProcessing}
-                    className="bg-white text-black font-black px-8 h-12 rounded-2xl shadow-[0_8px_30px_rgba(255,255,255,0.1)] disabled:opacity-30 transition-all active:scale-95 text-[11px] uppercase tracking-[0.2em]"
+                    className="bg-white text-black font-black px-6 py-2 rounded-xl text-[10px] uppercase tracking-widest active:scale-95 shadow-xl transition-all"
                 >
-                    {isProcessing ? 'Saving' : 'Next'}
+                    {isProcessing ? 'Saving' : 'Save'}
                 </button>
             </div>
 
-            {/* Video Stage: Intelligent Layout for 100% Visibility */}
-            <div className="flex-1 w-full max-w-lg relative flex items-center justify-center px-4 overflow-hidden py-4">
-                {/* Background Blur for non-standard aspect ratios */}
-                <div 
-                    className="absolute inset-x-8 inset-y-12 opacity-30 blur-3xl pointer-events-none transition-all duration-1000"
-                    style={{ background: filter.class ? 'inherit' : 'linear-gradient(45deg, #ec4899, #8b5cf6)' }}
-                />
-
-                <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] bg-zinc-950 border border-white/10 group flex items-center justify-center">
+            {/* Video Stage: 9:16 Optimized Center */}
+            <div className="flex-1 w-full relative flex items-center justify-center overflow-hidden py-2 px-10">
+                <div className="relative h-full aspect-[9/16] bg-zinc-900 rounded-[2rem] overflow-hidden shadow-2xl border border-white/5 group">
                     <video 
                         ref={videoRef}
                         src={videoUrl} 
-                        className={`w-full h-full object-contain transition-all duration-500 transform-gpu ${filter.class}`}
+                        className={`w-full h-full object-contain transition-all duration-300 ${filter.class}`}
                         onLoadedMetadata={handleLoadedMetadata}
-                        playsInline
-                        muted
-                        loop
+                        playsInline muted loop
                     />
                     
-                    {/* Centered Loading Progress (FFmpeg Initialization) */}
-                    {(!ffmpegLoaded || isGeneratingThumbs) && !loadError && (
-                        <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center space-y-8 z-[60] animate-in fade-in duration-500">
-                            <div className="relative w-40 h-40">
-                                <svg className="w-full h-full text-zinc-900 -rotate-90" viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" />
-                                    <circle 
-                                        cx="50" cy="50" r="45" 
-                                        fill="none" stroke="#ec4899" 
-                                        strokeWidth="4" 
-                                        strokeDasharray="283" 
-                                        strokeDashoffset={283 - (283 * (progress / 100))} 
-                                        strokeLinecap="round" 
-                                        className="transition-all duration-500 ease-out shadow-[0_0_30px_#ec4899]" 
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-white font-black text-5xl tracking-tighter">{progress}</span>
-                                    <span className="text-[10px] font-black uppercase text-pink-500 tracking-[0.5em] mt-1">Percent</span>
-                                </div>
-                            </div>
-                            <div className="text-center space-y-2">
-                                <h3 className="text-white font-black uppercase tracking-[0.4em] text-sm">Syncing Studio</h3>
-                                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Initializing native components...</p>
+                    {/* Text Overlay Preview */}
+                    {overlayText && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="px-4 py-2 bg-black/40 backdrop-blur-md rounded-lg text-white font-black text-2xl uppercase tracking-widest shadow-2xl border border-white/20">
+                                {overlayText}
                             </div>
                         </div>
                     )}
 
-                    {/* Rendering Overlay */}
-                    {isProcessing && (
-                        <div className="absolute inset-0 bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center space-y-10 z-[70] animate-in zoom-in-95 duration-500">
-                            <div className="w-24 h-24 relative">
-                                <div className="absolute inset-0 border-[6px] border-pink-500/10 rounded-full" />
-                                <div className="absolute inset-0 border-[6px] border-pink-500 border-t-transparent rounded-full animate-spin shadow-[0_0_20px_#ec4899]" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-pink-500 font-black text-xl">{progress}%</span>
-                                </div>
+                    {/* Right Menu (Vertical) */}
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
+                        {[
+                            { id: 'trim', icon: 'M4 12V4L20 12L4 20V12' },
+                            { id: 'filter', icon: 'M12 2L2 7L12 12L22 7L12 2Z' },
+                            { id: 'text', icon: 'M5 7h14m-7 0v12' }
+                        ].map((btn) => (
+                            <button 
+                                key={btn.id}
+                                onClick={() => setActiveTool(btn.id as Tool)}
+                                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTool === btn.id ? 'bg-pink-500 shadow-[0_0_20px_#ec4899]' : 'bg-white/10 backdrop-blur-md border border-white/10'}`}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                                    <path d={btn.icon} />
+                                </svg>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Pre-load Overlay */}
+                    {!ffmpegLoaded && !loadError && (
+                        <div className="absolute inset-0 bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center z-[60]">
+                            <div className="w-24 h-24 relative mb-4">
+                                <svg className="w-full h-full text-white/5 -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" />
+                                    <circle 
+                                        cx="50" cy="50" r="45" 
+                                        fill="none" stroke="#ec4899" strokeWidth="4" 
+                                        strokeDasharray="283" strokeDashoffset={283 - (283 * (progress / 100))} 
+                                        strokeLinecap="round" className="transition-all duration-300"
+                                    />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center font-black text-white">{progress}%</div>
                             </div>
-                            <div className="text-center">
-                                <h3 className="text-white font-black uppercase tracking-[0.3em] text-lg mb-2">Exporting</h3>
-                                <p className="text-zinc-500 text-[11px] font-bold uppercase tracking-[0.2em] max-w-[200px] leading-relaxed">Applying filters and trimming frames...</p>
-                            </div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-pink-500 animate-pulse">Initializing Studio</div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Controls Section */}
-            <div className="w-full max-w-lg px-8 py-8 pb-16 space-y-10 relative">
-                {/* Trimmer: Advanced Dual-Slider with z-index correction */}
-                <div className="space-y-5">
-                    <div className="flex justify-between items-center px-1">
-                        <div className="flex flex-col">
-                            <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Timeline</label>
-                            <span className="text-[11px] font-bold text-white/90 uppercase tabular-nums">{formatTime(startTime)} — {formatTime(endTime)}</span>
+            {/* Modular Workspace Footer */}
+            <div className="w-full max-w-lg px-6 py-6 pb-10 bg-black/80 backdrop-blur-3xl border-t border-white/5 relative z-50">
+                {activeTool === 'trim' && (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-2">
+                        <div className="flex justify-between items-center text-[10px] font-black text-white/40 uppercase tracking-widest px-1">
+                            <span>{formatTime(startTime)}</span>
+                            <span className="text-pink-500">{formatTime(endTime - startTime)} selected</span>
+                            <span>{formatTime(endTime)}</span>
                         </div>
-                        <div className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">
-                             <span className="text-[10px] font-black text-pink-500 uppercase tracking-widest">{formatTime(endTime - startTime)} Total</span>
-                        </div>
-                    </div>
-                    
-                    <div className="relative h-24 bg-white/[0.02] rounded-3xl border border-white/10 overflow-hidden ring-1 ring-white/10 group/filmstrip shadow-2xl">
-                        {/* Filmstrip Tracks */}
-                        <div className="absolute inset-0 flex gap-1 p-1.5 opacity-40 group-hover/filmstrip:opacity-100 transition-opacity duration-700">
-                            {thumbnails.length > 0 ? (
-                                thumbnails.map((src, i) => (
-                                    <div key={i} className="flex-1 h-full overflow-hidden rounded-md border border-white/5">
-                                        <img src={src} className="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-300" alt="" />
-                                    </div>
-                                ))
-                            ) : (
-                                Array(10).fill(0).map((_, i) => (
-                                    <div key={i} className="flex-1 h-full bg-white/5 rounded-md animate-pulse" />
-                                ))
-                            )}
-                        </div>
-
-                        {/* Custom Luxury Dual Trimmer */}
-                        <div className="absolute inset-0 px-2 flex items-center">
-                            <div className="relative w-full h-[calc(100%-12px)] flex items-center">
-                                {/* Highlight Area */}
+                        <div ref={sliderRef} className="relative h-16 bg-white/5 rounded-2xl overflow-hidden border border-white/5">
+                            <div className="absolute inset-0 flex gap-0.5 p-1 opacity-30">
+                                {thumbnails.map((src, i) => (
+                                    <img key={i} src={src} className="flex-1 h-full object-cover rounded-sm grayscale" alt="" />
+                                ))}
+                            </div>
+                            {/* The "Bridge" area to slide entire selection */}
+                            <div 
+                                onMouseDown={(e) => handleSliderInteract(e, 'bridge')}
+                                onTouchStart={(e) => handleSliderInteract(e, 'bridge')}
+                                className="absolute top-0 bottom-0 border-x-[14px] border-y-[4px] border-pink-500 bg-pink-500/10 backdrop-blur-sm cursor-grab active:cursor-grabbing z-20 group"
+                                style={{ 
+                                    left: `${(startTime / duration) * 100}%`, 
+                                    right: `${100 - (endTime / duration) * 100}%`
+                                }}
+                            >
+                                {/* Drag handles */}
                                 <div 
-                                    className="absolute h-full border-x-[12px] border-y-4 border-pink-500 bg-pink-500/10 backdrop-blur-[4px] z-10 rounded-xl"
-                                    style={{ 
-                                        left: `${(startTime / duration) * 100}%`, 
-                                        right: `${100 - (endTime / duration) * 100}%`
-                                    }}
+                                    onMouseDown={(e) => { e.stopPropagation(); handleSliderInteract(e, 'start'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleSliderInteract(e, 'start'); }}
+                                    className="absolute -left-[14px] top-0 bottom-0 w-[14px] pointer-events-auto flex items-center justify-center group-active:scale-110 transition-transform"
                                 >
-                                    {/* Left Handle Cap */}
-                                    <div className="absolute -left-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center pointer-events-none">
-                                        <div className="w-1 h-8 bg-white/60 rounded-full" />
-                                    </div>
-                                    {/* Right Handle Cap */}
-                                    <div className="absolute -right-[12px] top-0 bottom-0 w-[12px] flex items-center justify-center pointer-events-none">
-                                        <div className="w-1 h-8 bg-white/60 rounded-full" />
-                                    </div>
+                                    <div className="w-1 h-6 bg-white/60 rounded-full" />
                                 </div>
-                                
-                                {/* INTERACTIVE SLIDERS: z-index swap logic allows both handles to be grabbed when overlapping */}
-                                <input 
-                                    type="range" min={0} max={duration} step={0.1} value={startTime}
-                                    onMouseDown={() => setActiveHandle('start')}
-                                    onTouchStart={() => setActiveHandle('start')}
-                                    onChange={(e) => {
-                                        const val = Math.min(parseFloat(e.target.value), endTime - 0.5);
-                                        setStartTime(val);
-                                        if (videoRef.current) videoRef.current.currentTime = val;
-                                    }}
-                                    className={`absolute inset-0 w-full h-full opacity-0 cursor-ew-resize pointer-events-auto ${activeHandle === 'start' ? 'z-30' : 'z-20'}`}
-                                />
-                                <input 
-                                    type="range" min={0} max={duration} step={0.1} value={endTime}
-                                    onMouseDown={() => setActiveHandle('end')}
-                                    onTouchStart={() => setActiveHandle('end')}
-                                    onChange={(e) => {
-                                        const val = Math.max(parseFloat(e.target.value), startTime + 0.5);
-                                        setEndTime(val);
-                                        if (videoRef.current) videoRef.current.currentTime = val;
-                                    }}
-                                    className={`absolute inset-0 w-full h-full opacity-0 cursor-ew-resize pointer-events-auto ${activeHandle === 'end' ? 'z-30' : 'z-20'}`}
-                                />
+                                <div 
+                                    onMouseDown={(e) => { e.stopPropagation(); handleSliderInteract(e, 'end'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleSliderInteract(e, 'end'); }}
+                                    className="absolute -right-[14px] top-0 bottom-0 w-[14px] pointer-events-auto flex items-center justify-center group-active:scale-110 transition-transform"
+                                >
+                                    <div className="w-1 h-6 bg-white/60 rounded-full" />
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <p className="text-[10px] text-zinc-600 text-center uppercase tracking-[0.2em] font-black">Hold and drag to select your peak performance</p>
-                </div>
+                )}
 
-                {/* Filter Suite */}
-                <div className="space-y-5">
-                    <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] px-1">Visual Styles</label>
-                    <div className="flex gap-6 overflow-x-auto pb-4 px-1 scrollbar-hide snap-x">
+                {activeTool === 'filter' && (
+                    <div className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1 animate-in slide-in-from-right-4">
                         {FILTERS.map((f) => (
                             <button
                                 key={f.id}
                                 onClick={() => setFilter(f)}
-                                className="flex-shrink-0 flex flex-col items-center gap-4 transition-all active:scale-90 snap-center"
+                                className={`flex-shrink-0 flex flex-col items-center gap-2 group ${filter.id === f.id ? 'opacity-100' : 'opacity-40'}`}
                             >
-                                <div className={`relative w-20 h-20 rounded-[1.8rem] border-2 transition-all duration-500 overflow-hidden ${filter.id === f.id ? 'border-pink-500 ring-4 ring-pink-500/20' : 'border-white/5 grayscale-[0.6] opacity-60'}`}>
-                                    <div className={`w-full h-full scale-110 ${f.class}`}>
-                                        {thumbnails[0] ? (
-                                            <img src={thumbnails[0]} className="w-full h-full object-cover" alt="" />
-                                        ) : (
-                                            <div className="w-full h-full bg-zinc-900" />
-                                        )}
-                                    </div>
-                                    {filter.id === f.id && (
-                                        <div className="absolute inset-0 bg-pink-500/10 flex items-center justify-center backdrop-blur-[2px]">
-                                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-xl">
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="4">
-                                                    <path d="M20 6L9 17l-5-5" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    )}
+                                <div className={`w-14 h-14 rounded-full border-2 transition-all ${filter.id === f.id ? 'border-pink-500 scale-110 ring-4 ring-pink-500/10' : 'border-white/20'}`}>
+                                    <div className={`w-full h-full rounded-full bg-zinc-800 ${f.class}`} />
                                 </div>
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${filter.id === f.id ? 'text-white' : 'text-zinc-500'}`}>{f.name}</span>
+                                <span className="text-[8px] font-black uppercase text-white/60">{f.name}</span>
                             </button>
                         ))}
                     </div>
-                </div>
+                )}
+
+                {activeTool === 'text' && (
+                    <div className="animate-in zoom-in-95 duration-200">
+                        <input 
+                            type="text"
+                            placeholder="Type overlay text..."
+                            value={overlayText}
+                            onChange={(e) => setOverlayText(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-white text-sm font-bold placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                            autoFocus
+                        />
+                    </div>
+                )}
             </div>
 
             <style jsx global>{`
                 .scrollbar-hide::-webkit-scrollbar { display: none; }
                 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-                input[type=range]::-webkit-slider-thumb {
-                    pointer-events: auto;
-                    width: 40px;
-                    height: 100px;
-                    appearance: none;
-                }
-                .transform-gpu { transform: translateZ(0); }
             `}</style>
         </div>
     );
