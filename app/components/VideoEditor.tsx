@@ -18,8 +18,9 @@ const FILTERS = [
     { id: 'cool', name: 'Cool', class: 'hue-rotate-[180deg] saturate-[0.8]', ffmpeg: 'hue=h=180:s=0.8' },
     { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
 ];
+const SPEEDS = [0.5, 1, 2] as const;
 
-type Tool = 'none' | 'trim' | 'filter' | 'text';
+type Tool = 'none' | 'trim' | 'filter' | 'text' | 'speed' | 'adjust';
 
 export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps) {
     const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
@@ -35,6 +36,8 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     const [thumbnails, setThumbnails] = useState<string[]>([]);
     const [activeTool, setActiveTool] = useState<Tool>('none');
     const [overlayText, setOverlayText] = useState('');
+    const [speed, setSpeed] = useState<0.5 | 1 | 2>(1);
+    const [adjustments, setAdjustments] = useState({ brightness: 0, contrast: 1, saturation: 1 });
     
     // Slider advanced state
     const [isDragging, setIsDragging] = useState<'start' | 'end' | 'bridge' | null>(null);
@@ -189,17 +192,34 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             const args = ['-ss', startTime.toFixed(2), '-to', endTime.toFixed(2), '-i', 'input.mp4'];
             
             const vfs = [];
+            // 1. Speed Adjustment
+            if (speed !== 1) {
+                vfs.push(`setpts=${1/speed}*PTS`);
+            }
+            // 2. Image Adjustments (Brightness, Contrast, Saturation)
+            vfs.push(`eq=brightness=${adjustments.brightness}:contrast=${adjustments.contrast}:saturation=${adjustments.saturation}`);
+            
+            // 3. Filters
             if (filter.id !== 'none' && filter.ffmpeg) vfs.push(filter.ffmpeg);
+            
+            // 4. Text Overlay
             if (overlayText) {
-                // Professional drawtext using the loaded font (or basic if font failed)
                 const nodes = await ffmpeg.listDir('/');
                 const fontArg = nodes.some(node => node.name === 'font.ttf') ? ':fontfile=font.ttf' : '';
                 vfs.push(`drawtext=text='${overlayText.toUpperCase()}':fontcolor=white:fontsize=64${fontArg}:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.4:boxborderw=20`);
             }
             
             if (vfs.length > 0) args.push('-vf', vfs.join(','));
+
+            // 5. Audio Speed (if changed)
+            if (speed !== 1) {
+                // FFmpeg atempo only supports 0.5 to 2.0.
+                args.push('-filter:a', `atempo=${speed}`);
+            } else {
+                args.push('-c:a', 'copy');
+            }
             
-            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '25', '-c:a', 'copy', 'output.mp4');
+            args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '25', 'output.mp4');
             await ffmpeg.exec(args);
             const data = await ffmpeg.readFile('output.mp4');
             onSave(new File([data as any], `edited_${file.name}`, { type: 'video/mp4' }));
@@ -241,12 +261,15 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             </div>
 
             {/* Fixed Aspect-Ratio Video Stage */}
-            <div className="flex-1 relative flex items-center justify-center p-4">
-                <div className="relative h-full aspect-[9/16] bg-zinc-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5">
+            <div className="flex-1 relative flex items-center justify-center p-4 min-h-0">
+                <div className="relative max-h-[55vh] lg:max-h-full aspect-[9/16] bg-zinc-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5">
                     <video 
                         ref={videoRef}
                         src={videoUrl} 
                         className={`w-full h-full object-contain transition-all duration-300 ${filter.class}`}
+                        style={{
+                            filter: `brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
+                        }}
                         onLoadedMetadata={handleLoadedMetadata}
                         playsInline muted loop
                     />
@@ -349,7 +372,7 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                     <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[2rem] border border-white/10 p-6 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-6 bottom-4 pointer-events-auto ${activeTool === 'text' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
                         <div className="space-y-4">
                             <input 
-                                type="text" placeholder="Add text overlay..." value={overlayText}
+                                type="text" placeholder="ADD TEXT OVERLAY..." value={overlayText}
                                 onChange={(e) => setOverlayText(e.target.value)}
                                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/20 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-sm"
                                 autoFocus={activeTool === 'text'}
@@ -360,26 +383,75 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                             </div>
                         </div>
                     </div>
+
+                    {/* Speed Sheet [NEW] */}
+                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[2rem] border border-white/10 p-6 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-6 bottom-4 pointer-events-auto ${activeTool === 'speed' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
+                        <div className="space-y-6">
+                            <span className="block text-[10px] font-black text-white/20 uppercase tracking-[0.3em] text-center">Video Speed</span>
+                            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                                {SPEEDS.map((s) => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setSpeed(s)}
+                                        className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${speed === s ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        {s}x
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Adjust Sheet [NEW] */}
+                    <div className={`w-full max-w-lg mx-auto bg-zinc-900/90 backdrop-blur-3xl rounded-[2rem] border border-white/10 p-6 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] absolute inset-x-6 bottom-4 pointer-events-auto ${activeTool === 'adjust' ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
+                        <div className="space-y-6">
+                            {[
+                                { key: 'brightness', label: 'Brightness', min: -0.5, max: 0.5, step: 0.05, icon: 'M12 2v2m0 16v2m10-10h-2M4 12H2m15.071-7.071l-1.414 1.414M7.05 16.95l-1.414 1.414M16.95 16.95l1.414 1.414M7.05 7.05L5.636 5.636' },
+                                { key: 'contrast', label: 'Contrast', min: 0.5, max: 1.5, step: 0.05, icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+                                { key: 'saturation', label: 'Saturation', min: 0, max: 2, step: 0.1, icon: 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0' }
+                            ].map((adj) => (
+                                <div key={adj.key} className="space-y-2">
+                                    <div className="flex justify-between items-center px-1">
+                                        <div className="flex items-center gap-2">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/40">
+                                                <path d={adj.icon} />
+                                            </svg>
+                                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{adj.label}</span>
+                                        </div>
+                                        <span className="text-[10px] font-black text-pink-500">{adjustments[adj.key as keyof typeof adjustments]}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min={adj.min} max={adj.max} step={adj.step}
+                                        value={adjustments[adj.key as keyof typeof adjustments]}
+                                        onChange={(e) => setAdjustments({ ...adjustments, [adj.key]: parseFloat(e.target.value) })}
+                                        className="w-full accent-pink-500 h-1 bg-white/10 rounded-full appearance-none outline-none"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Persistent Tab Navigation Bar */}
-                <div className="bg-zinc-950 px-8 py-6 pb-12 flex justify-between items-center border-t border-white/5">
+                <div className="bg-zinc-950 px-6 py-6 pb-12 flex justify-between items-center border-t border-white/5 gap-2 overflow-x-auto scrollbar-hide">
                     {[
-                        { id: 'trim', label: 'Trim', icon: 'M4 12V4L20 12L4 20V12' },
-                        { id: 'filter', label: 'Filter', icon: 'M12 2L2 7L12 12L22 7L12 2Z' },
-                        { id: 'text', label: 'Text', icon: 'M5 7h14m-7 0v12' }
+                        { id: 'trim', label: 'Trim', d: 'M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z' }, // Simplified Camera/Film icon
+                        { id: 'filter', label: 'Filter', d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' }, // Magic Star
+                        { id: 'text', label: 'Text', d: 'M4 7V4h16v3M9 20h6M12 4v16' }, // Clear Typography T
+                        { id: 'speed', label: 'Speed', d: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' }, // Lightning bolt (Speed)
+                        { id: 'adjust', label: 'Adjust', d: 'M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6' } // Advanced Sliders
                     ].map((tab) => (
                         <button 
                             key={tab.id}
                             onClick={() => setActiveTool(activeTool === tab.id ? 'none' : tab.id as Tool)}
-                            className={`flex flex-col items-center gap-2 group transition-all active:scale-90 ${activeTool === tab.id ? 'text-pink-500' : 'text-white/40'}`}
+                            className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all active:scale-90 ${activeTool === tab.id ? 'text-pink-500' : 'text-white/40'}`}
                         >
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${activeTool === tab.id ? 'bg-pink-500/10 shadow-[0_0_15px_rgba(236,72,153,0.2)]' : 'bg-transparent'}`}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d={tab.icon} />
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d={tab.d} />
                                 </svg>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest">{tab.label}</span>
                         </button>
                     ))}
                 </div>
