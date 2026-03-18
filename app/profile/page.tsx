@@ -86,7 +86,7 @@ export default function Profile() {
             router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
             setLastTap(null);
         } else {
-            // Single Tap -> Play in thumbnail (if video)
+            // Single Tap -> Play in thumbnail (if video) or Navigate (if image)
             setLastTap({ id: post.id, time: now });
             
             if (isPostVideo) {
@@ -316,6 +316,7 @@ export default function Profile() {
                                             isBunnyStream(post.main_image_url) ? (
                                                 isPlaying ? (
                                                     <iframe
+                                                        key={`${post.id}-playing`}
                                                         src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
                                                         loading="lazy"
                                                         style={{ border: 0, width: '100%', height: '100%' }}
@@ -337,6 +338,7 @@ export default function Profile() {
                                             ) : isVideo(post.main_image_url) ? (
                                                 <div className="w-full h-full relative">
                                                     <video 
+                                                        key={isPlaying ? `${post.id}-playing` : `${post.id}-paused`}
                                                         src={post.main_image_url} 
                                                         className="w-full h-full object-cover"
                                                         muted
