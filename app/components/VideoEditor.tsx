@@ -123,7 +123,12 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     };
 
     const handleProcess = async () => {
-        if (!ffmpegLoaded) return;
+        if (!ffmpegLoaded) {
+            // Fallback: If FFmpeg is not loaded, just save the original file
+            console.warn('FFmpeg not loaded, saving original file.');
+            onSave(file);
+            return;
+        }
         setIsProcessing(true);
         try {
             const ffmpeg = ffmpegRef.current;
@@ -148,7 +153,8 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             onSave(editedFile);
         } catch (err) {
             console.error('Processing Error:', err);
-            alert('Error processing video. Please try a shorter clip.');
+            // On error, still allow user to proceed with original
+            onSave(file);
         } finally {
             setIsProcessing(false);
         }
@@ -182,7 +188,7 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                 </div>
                 <button 
                     onClick={handleProcess} 
-                    disabled={!ffmpegLoaded || isProcessing}
+                    disabled={isProcessing}
                     className="bg-pink-500 text-white font-black px-6 h-10 rounded-full shadow-[0_4px_20px_rgba(236,72,153,0.4)] disabled:opacity-50 transition-active active:scale-95 text-xs uppercase tracking-widest"
                 >
                     {isProcessing ? 'Saving' : 'Next'}
@@ -211,28 +217,24 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
                         </div>
                     </div>
 
-                    {/* Loading Overlay */}
-                    {(!ffmpegLoaded || isGeneratingThumbs) && !loadError && (
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center">
-                            <div className="w-16 h-16 relative">
-                                <div className="absolute inset-0 border-4 border-pink-500/20 rounded-full" />
-                                <div className="absolute inset-0 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                            <p className="mt-6 text-[11px] font-black uppercase tracking-[0.4em] text-pink-500 animate-pulse">Initializing Studio</p>
+                    {/* Loading Overlay - only for FFmpeg, don't block thumbnails/video */}
+                    {!ffmpegLoaded && !loadError && (
+                        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 z-50">
+                            <div className="w-3 h-3 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-300">Editor Syncing...</span>
                         </div>
                     )}
 
-                    {/* Error State */}
+                    {/* Error State - Subtle toast instead of full block */}
                     {loadError && (
-                        <div className="absolute inset-0 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center">
-                            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-4 border border-red-500/20">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <div className="absolute top-4 left-4 right-4 bg-red-500/90 backdrop-blur-xl px-4 py-3 rounded-2xl flex items-center justify-between z-50 animate-in slide-in-from-top duration-300">
+                            <div className="flex items-center gap-3">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white">
                                     <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
                                 </svg>
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">Editing Limited (Offline)</span>
                             </div>
-                            <h3 className="font-black text-white uppercase tracking-widest mb-2">Editor Offline</h3>
-                            <p className="text-zinc-500 text-xs mb-6 px-4 leading-relaxed">{loadError}</p>
-                            <button onClick={() => window.location.reload()} className="bg-white text-black font-black px-8 py-3 rounded-full text-[10px] uppercase tracking-[0.2em] transition-active active:scale-95">Restart</button>
+                            <button onClick={() => setLoadError(null)} className="text-white/60 hover:text-white uppercase text-[9px] font-bold">Dismiss</button>
                         </div>
                     )}
 
