@@ -30,10 +30,25 @@ export async function GET(req: NextRequest) {
 
         const data = await response.json();
         
+        // Bunny Stream status codes:
+        // 0 = Queued, 1 = Processing, 2 = Encoding, 3 = Finished, 4 = Resolution finished, 5 = Failed, 6 = PresignedUploadWaiting
+        
+        let progress = data.encodeProgress || 0;
+        
+        // If status is Processing (1), ensure we show at least some progress (e.g. 5%)
+        if (data.status === 1 && progress === 0) {
+            progress = 5;
+        } else if (data.status === 2 && progress === 0) {
+            progress = 20; // Encoding started
+        } else if (data.status >= 3) {
+            progress = 100;
+        }
+
         return NextResponse.json({
-            status: data.status, // 0 = Queued, 1 = Processing, 2 = Encoding, 3 = Finished, 4 = Resolution finished, 5 = Failed, 6 = PresignedUploadWaiting
-            encodeProgress: data.encodeProgress,
-            ready: data.status === 4 || data.status === 3 || data.status === 5,
+            status: data.status,
+            encodeProgress: progress,
+            ready: data.status === 4 || data.status === 3, // 5 = Failed, don't mark as ready
+            failed: data.status === 5
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

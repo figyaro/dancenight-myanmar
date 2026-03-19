@@ -71,9 +71,21 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     }, [speed]);
 
     useEffect(() => {
-        if (videoRef.current) {
-            if (isPlaying) videoRef.current.play().catch(e => console.warn(e));
-            else videoRef.current.pause();
+        if (!videoRef.current) return;
+        const video = videoRef.current;
+        if (isPlaying) {
+            video.play().catch(e => console.warn(e));
+            // Smooth playback cursor using RAF
+            let rafId: number;
+            const update = () => {
+                setCurrentTime(video.currentTime);
+                rafId = requestAnimationFrame(update);
+            };
+            rafId = requestAnimationFrame(update);
+            return () => cancelAnimationFrame(rafId);
+        } else {
+            video.pause();
+            setCurrentTime(video.currentTime);
         }
     }, [isPlaying]);
     const [adjustments, setAdjustments] = useState({ brightness: 0, contrast: 1, saturation: 1 });
@@ -139,6 +151,13 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
 
     const generateThumbnails = useCallback(async (vidDuration: number) => {
         setIsGeneratingThumbs(true);
+        // Ensure video is ready before capturing
+        if (thumbVideoRef.current) {
+             const vid = thumbVideoRef.current;
+             if (vid.readyState < 2) {
+                 await new Promise(r => vid.addEventListener('loadeddata', r, { once: true }));
+             }
+        }
         const thumbs: string[] = [];
         const count = 10;
         const interval = vidDuration / count;
@@ -155,18 +174,36 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
             const vid = thumbVideoRef.current;
             const canvas = canvasRef.current;
             if (!vid || !canvas) return resolve(null);
-            vid.currentTime = time;
+            
+            // Nudge time slightly to ensure we don't hit a blank frame at 0
+            vid.currentTime = Math.max(0.01, time);
+            
             const onSeeked = () => {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.5));
+                    try {
+                        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.5));
+                    } catch (e) {
+                        console.error("Canvas draw failed", e);
+                        resolve(null);
+                    }
                 } else {
                     resolve(null);
                 }
                 vid.removeEventListener('seeked', onSeeked);
             };
-            vid.addEventListener('seeked', onSeeked);
+            
+            // Timeout fallback for iOS if seeked doesn't fire
+            const timeout = setTimeout(() => {
+                vid.removeEventListener('seeked', onSeeked);
+                onSeeked();
+            }, 1000);
+
+            vid.addEventListener('seeked', () => {
+                clearTimeout(timeout);
+                onSeeked();
+            }, { once: true });
         });
     };
 
@@ -347,9 +384,16 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
 
     return (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans overflow-hidden select-none">
-            {/* Background Studio Pre-loader */}
-            <video ref={thumbVideoRef} src={videoUrl} hidden playsInline muted preload="auto" />
-            <canvas ref={canvasRef} width={240} height={240} hidden />
+            {/* Background Studio Pre-loader - Using opacity/positioning instead of hidden for iOS canvas capture */}
+            <video 
+                ref={thumbVideoRef} 
+                src={videoUrl} 
+                style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px', height: '1px' }} 
+                playsInline 
+                muted 
+                preload="auto" 
+            />
+            <canvas ref={canvasRef} width={240} height={240} style={{ display: 'none' }} />
 
             {/* Premium Header - Ultra Compact */}
             <div className="flex justify-between items-center px-4 pt-2 pb-1 relative z-50">
@@ -386,9 +430,6 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                             filter: `${filter.style} brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
                         }}
                         onLoadedMetadata={handleLoadedMetadata}
-                        onTimeUpdate={() => {
-                            if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
-                        }}
                         onPlay={() => setIsPlaying(true)}
                         onPause={() => setIsPlaying(false)}
                         playsInline 
@@ -599,37 +640,37 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                                 type="text" 
                                                 value={overlays.find(o => o.id === selectedTextId)?.text || ''}
                                                 onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, text: e.target.value } : o))}
-                                                className="w-full bg-white/5 border-2 border-white/10 rounded-2xl px-4 py-2 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-sm shadow-inner"
-                                                placeholder="ENTER CAPTION..."
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white font-black placeholder:text-white/10 outline-none transition-all uppercase tracking-widest text-xs"
+                                                placeholder="CAPTION..."
                                                 autoFocus
                                             />
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-1.5">
                                             <button 
                                                 onClick={() => setSelectedTextId(null)}
-                                                className="bg-green-500 text-white p-3 rounded-2xl shadow-lg shadow-green-500/20 active:scale-90 transition-all"
+                                                className="bg-green-600 text-white p-2 rounded-xl active:scale-90 transition-all"
                                             >
-                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M20 6L9 17l-5-5"/></svg>
                                             </button>
                                             <button 
                                                 onClick={() => {
                                                     setOverlays(prev => prev.filter(o => o.id !== selectedTextId));
                                                     setSelectedTextId(null);
                                                 }}
-                                                className="bg-zinc-800 text-red-500 p-3 rounded-2xl border border-white/10 active:scale-90 transition-all"
+                                                className="bg-zinc-800 text-red-500 p-2 rounded-xl border border-white/5 active:scale-90 transition-all"
                                             >
-                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                             </button>
                                         </div>
                                     </div>
                                     
                                     {/* Styling Tabs */}
-                                    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                                    <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
                                         {(['text', 'bg', 'border', 'anim'] as const).map(tab => (
                                             <button 
                                                 key={tab}
                                                 onClick={() => setTextTab(tab)}
-                                                className={`flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${textTab === tab ? 'bg-zinc-800 text-pink-500 shadow-xl' : 'text-white/40 hover:text-white'}`}
+                                                className={`flex-1 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${textTab === tab ? 'bg-zinc-800 text-pink-500 shadow-xl' : 'text-white/40 hover:text-white'}`}
                                             >
                                                 {tab}
                                             </button>

@@ -63,8 +63,8 @@ function HomeFeedContent() {
     const [visibilityRatios, setVisibilityRatios] = useState<Record<string, number>>({});
     
     // Video Processing Status State
-    const [videoStatusMap, setVideoStatusMap] = useState<Record<string, { ready: boolean; encodeProgress: number }>>({});
-    const pollingStateRef = useRef<Record<string, 'polling' | 'ready'>>({});
+    const [videoStatusMap, setVideoStatusMap] = useState<Record<string, { ready: boolean; encodeProgress: number; failed?: boolean }>>({});
+    const pollingStateRef = useRef<Record<string, 'polling' | 'ready' | 'failed'>>({});
     
     // Audio State
     const [isMuted, setIsMuted] = useState(false);
@@ -388,18 +388,24 @@ function HomeFeedContent() {
     useEffect(() => {
         const isProbablyReady = (createdAt?: string) => {
             if (!createdAt) return false;
-            // If older than 5 minutes, assume it's completely processed to save API calls
+            // Only old posts (5m+) skip polling
             return Date.now() - new Date(createdAt).getTime() > 5 * 60 * 1000;
         };
 
         posts.forEach(post => {
             if (!post.main_image_url || !isBunnyStream(post.main_image_url)) return;
-            if (isProbablyReady(post.created_at as string)) return; // Use fallback rendering
+            if (isProbablyReady(post.created_at as string)) {
+                 if (!pollingStateRef.current[post.id]) {
+                    pollingStateRef.current[post.id] = 'ready';
+                    setVideoStatusMap(prev => ({ ...prev, [post.id]: { ready: true, encodeProgress: 100 } }));
+                 }
+                 return;
+            }
             
             const videoId = extractBunnyVideoId(post.main_image_url);
             if (!videoId) return;
 
-            if (pollingStateRef.current[post.id]) return; // Already polling or known ready
+            if (pollingStateRef.current[post.id]) return; // Already polling or known outcome
             
             pollingStateRef.current[post.id] = 'polling';
 
@@ -410,7 +416,7 @@ function HomeFeedContent() {
                         const data = await res.json();
                         setVideoStatusMap(prev => ({
                             ...prev,
-                            [post.id]: { ready: data.ready, encodeProgress: data.encodeProgress || 0 }
+                            [post.id]: { ready: data.ready, encodeProgress: data.encodeProgress || 0, failed: data.failed }
                         }));
 
                         if (data.ready) {
@@ -419,11 +425,16 @@ function HomeFeedContent() {
                             setTimeout(() => setShowSuccessNotification(null), 5000);
                             return; // Stop polling
                         }
+
+                        if (data.failed) {
+                            pollingStateRef.current[post.id] = 'failed';
+                            return; // Stop polling
+                        }
                     }
                 } catch (e) {
                     console.warn("Polling error", e);
                 }
-                setTimeout(pollStatus, 2000); // Poll every 2 seconds for better responsiveness
+                setTimeout(pollStatus, 2500); // Poll every 2.5 seconds
             };
 
             pollStatus();
