@@ -45,6 +45,9 @@ const Icons = {
     ),
     Dtip: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/></svg>
+    ),
+    SnsGenerator: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
     )
 };
 
@@ -59,6 +62,7 @@ const ALL_MENU_ITEMS = [
     { name: 'Dtip', icon: Icons.Dtip, path: '/admin/dtip' },
     { name: 'Events', icon: Icons.Events, path: '/admin/events' },
     { name: 'Plans', icon: Icons.Plans, path: '/admin/plans' },
+    { name: 'SNS GENERATOR', icon: Icons.SnsGenerator, path: '/admin/sns-generator' },
     { name: 'Translations', icon: Icons.Translations, path: '/admin/translations' },
     { name: 'Settings', icon: Icons.Settings, path: '/admin/settings' },
 ];
