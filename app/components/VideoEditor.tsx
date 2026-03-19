@@ -22,7 +22,7 @@ const FILTERS = [
     { id: 'cool', name: 'Cool', class: 'hue-rotate-[180deg] saturate-[0.8]', style: 'hue-rotate(180deg) saturate(0.8)', ffmpeg: 'hue=h=180:s=0.8' },
     { id: 'fade', name: 'Fade', class: 'opacity-[0.9] contrast-[0.9]', style: 'opacity(0.9) contrast(0.9) brightness(0.95)', ffmpeg: 'eq=contrast=0.9:brightness=-0.05' },
 ];
-const SPEEDS = [0.5, 1, 2] as const;
+const SPEEDS = [0.8, 1, 1.2] as const;
 
 type Tool = 'none' | 'trim' | 'filter' | 'text' | 'speed' | 'adjust';
 type AnimationType = 'none' | 'fade' | 'typewriter' | 'bounce';
@@ -60,7 +60,22 @@ export default function VideoEditor({ file, onSave, onCancel }: VideoEditorProps
     const [overlays, setOverlays] = useState<TextOverlay[]>([]);
     const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
     
-    const [speed, setSpeed] = useState<0.5 | 1 | 2>(1);
+    const [speed, setSpeed] = useState<0.8 | 1 | 1.2>(1);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(true);
+
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.playbackRate = speed;
+        }
+    }, [speed]);
+
+    useEffect(() => {
+        if (videoRef.current) {
+            if (isPlaying) videoRef.current.play().catch(e => console.warn(e));
+            else videoRef.current.pause();
+        }
+    }, [isPlaying]);
     const [adjustments, setAdjustments] = useState({ brightness: 0, contrast: 1, saturation: 1 });
     const [textTab, setTextTab] = useState<'text' | 'bg' | 'border' | 'anim'>('text');
     
@@ -287,16 +302,16 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
             if (speed !== 1) {
                 // FFmpeg atempo only supports 0.5 to 2.0.
                 args.push('-filter:a', `atempo=${speed}`);
-            } else {
-                args.push('-c:a', 'copy');
             }
+            // Removed -c:a copy to avoid errors on videos with no audio track. Let FFmpeg encode audio if available.
             
             args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '25', 'output.mp4');
             await ffmpeg.exec(args);
             const data = await ffmpeg.readFile('output.mp4');
             onSave(new File([data as any], `edited_${file.name}`, { type: 'video/mp4' }));
-        } catch (err) {
+        } catch (err: any) {
             console.error('Export Error:', err);
+            alert(`Video processing failed. Returning standard video. Error: ${err.message || 'Unknown'}`);
             onSave(file);
         } finally {
             setIsProcessing(false);
@@ -333,7 +348,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
     return (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans overflow-hidden select-none">
             {/* Background Studio Pre-loader */}
-            <video ref={thumbVideoRef} src={videoUrl} hidden crossOrigin="anonymous" playsInline muted preload="auto" />
+            <video ref={thumbVideoRef} src={videoUrl} hidden playsInline muted preload="auto" />
             <canvas ref={canvasRef} width={240} height={240} hidden />
 
             {/* Premium Header - Ultra Compact */}
@@ -355,7 +370,14 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
 
             {/* Fixed Aspect-Ratio Video Stage - Maximized */}
             <div className="flex-1 relative flex items-center justify-center p-1 pt-0 min-h-0">
-                <div ref={stageRef} className="relative max-h-[60vh] lg:max-h-full aspect-[9/16] bg-zinc-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5">
+                <div 
+                    ref={stageRef} 
+                    className="relative max-h-[60vh] lg:max-h-full aspect-[9/16] bg-zinc-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/5 cursor-pointer"
+                    onClick={() => {
+                        if (activeTool === 'text') return;
+                        setIsPlaying((prev) => !prev);
+                    }}
+                >
                     <video 
                         ref={videoRef}
                         src={videoUrl} 
@@ -364,12 +386,27 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                             filter: `${filter.style} brightness(${1 + adjustments.brightness}) contrast(${adjustments.contrast}) saturate(${adjustments.saturation})`
                         }}
                         onLoadedMetadata={handleLoadedMetadata}
+                        onTimeUpdate={() => {
+                            if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+                        }}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
                         playsInline 
                         muted 
                         loop
                         autoPlay
                         preload="auto"
                     />
+
+                    {!isPlaying && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                            <div className="w-16 h-16 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* Draggable & Resizable Text System */}
                     {overlays.map((o) => (
@@ -461,6 +498,15 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                         <img key={i} src={src} className="flex-1 h-full object-cover rounded-sm" alt="" />
                                     ))}
                                 </div>
+                                {/* Playback Position Cursor */}
+                                {duration > 0 && (
+                                    <div 
+                                        className="absolute top-0 bottom-0 w-0.5 bg-white z-10 pointer-events-none"
+                                        style={{ left: `${(currentTime / duration) * 100}%` }}
+                                    >
+                                        <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white rotate-45 shadow-sm" />
+                                    </div>
+                                )}
                                 <div 
                                     onMouseDown={(e) => startDragging(e, 'bridge')}
                                     onTouchStart={(e) => startDragging(e, 'bridge')}
@@ -486,43 +532,56 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                         </div>
                     </div>
 
-                    {/* Filter Sheet */}
-                    <div 
+                     <div 
                         className={`w-full max-w-lg bg-zinc-900/95 backdrop-blur-3xl rounded-[1.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'filter' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
                         style={{ zIndex: activeTool === 'filter' ? 50 : 0 }}
                     >
-                         <div className="flex gap-4 overflow-x-auto pb-2 pt-1 scrollbar-hide snap-x px-2">
-                            {FILTERS.map((f) => (
-                                <button 
-                                    key={f.id} 
-                                    onClick={() => setFilter(f)} 
-                                    className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all snap-center group`}
-                                >
-                                    <div className={`w-16 h-16 rounded-[1.2rem] border-[2.5px] transition-all flex items-center justify-center relative overflow-hidden ${filter.id === f.id ? 'border-pink-500 scale-105 shadow-xl shadow-pink-500/30' : 'border-white/10 group-hover:border-white/20'}`}>
-                                        {/* Filter Thumbnail with real CSS effect */}
-                                        <div className="absolute inset-0 bg-zinc-800">
-                                           {thumbnails[2] && (
-                                                <img 
-                                                    src={thumbnails[2]} 
-                                                    className="w-full h-full object-cover opacity-60" 
-                                                    style={{ filter: f.style }}
-                                                    alt="" 
-                                                />
-                                            )}
+                         <div className="relative group">
+                             <button
+                                 onClick={(e) => { e.preventDefault(); const c = document.getElementById('filter-scroll'); if (c) c.scrollBy({ left: -150, behavior: 'smooth' }); }}
+                                 className="absolute -left-4 top-0 bottom-0 w-8 bg-gradient-to-r from-zinc-900 to-transparent z-20 flex items-center justify-start text-white/50 active:text-white"
+                             >
+                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                             </button>
+                             <button
+                                 onClick={(e) => { e.preventDefault(); const c = document.getElementById('filter-scroll'); if (c) c.scrollBy({ left: 150, behavior: 'smooth' }); }}
+                                 className="absolute -right-4 top-0 bottom-0 w-8 bg-gradient-to-l from-zinc-900 to-transparent z-20 flex items-center justify-end text-white/50 active:text-white"
+                             >
+                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                             </button>
+                             <div id="filter-scroll" className="flex gap-4 overflow-x-auto pb-2 pt-1 scrollbar-hide snap-x px-4 scroll-smooth">
+                                {FILTERS.map((f) => (
+                                    <button 
+                                        key={f.id} 
+                                        onClick={() => setFilter(f)} 
+                                        className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all snap-center group`}
+                                    >
+                                        <div className={`w-16 h-16 rounded-[1.2rem] border-[2.5px] transition-all flex items-center justify-center relative overflow-hidden ${filter.id === f.id ? 'border-pink-500 scale-105 shadow-xl shadow-pink-500/30' : 'border-white/10 group-hover:border-white/20'}`}>
+                                            {/* Filter Thumbnail with real CSS effect */}
+                                            <div className="absolute inset-0 bg-zinc-800">
+                                               {thumbnails[2] && (
+                                                    <img 
+                                                        src={thumbnails[2]} 
+                                                        className="w-full h-full object-cover opacity-60" 
+                                                        style={{ filter: f.style }}
+                                                        alt="" 
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className={`absolute inset-0 bg-black/20 ${filter.id === f.id ? 'opacity-0' : 'opacity-100'}`} />
                                         </div>
-                                        <div className={`absolute inset-0 bg-black/20 ${filter.id === f.id ? 'opacity-0' : 'opacity-100'}`} />
-                                    </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-tighter transition-colors ${filter.id === f.id ? 'text-white' : 'text-white/30'}`}>{f.name}</span>
-                                </button>
-                            ))}
+                                        <span className={`text-[9px] font-black uppercase tracking-tighter transition-colors ${filter.id === f.id ? 'text-white' : 'text-white/30'}`}>{f.name}</span>
+                                    </button>
+                                ))}
+                             </div>
                          </div>
                     </div>
 
                     <div 
-                        className={`w-full max-w-lg bg-zinc-900/98 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 p-6 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'text' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
+                        className={`w-full max-w-lg bg-zinc-900/98 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 p-4 shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTool === 'text' ? 'translate-y-0 opacity-100 pointer-events-auto visible' : 'translate-y-8 opacity-0 pointer-events-none invisible absolute'}`}
                         style={{ zIndex: activeTool === 'text' ? 50 : 0 }}
                     >
-                        <div className="space-y-6">
+                        <div className="space-y-3">
                             {!selectedTextId ? (
                                 <button 
                                     onClick={addText}
@@ -532,15 +591,15 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                     Add New Overlay
                                 </button>
                             ) : (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-400">
+                                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-400">
                                     {/* Pro Input Header */}
-                                    <div className="flex gap-3 items-center">
+                                    <div className="flex gap-2 items-center">
                                         <div className="flex-1 relative group">
                                             <input 
                                                 type="text" 
                                                 value={overlays.find(o => o.id === selectedTextId)?.text || ''}
                                                 onChange={(e) => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, text: e.target.value } : o))}
-                                                className="w-full bg-white/5 border-2 border-white/10 rounded-2xl px-5 py-4 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-sm shadow-inner"
+                                                className="w-full bg-white/5 border-2 border-white/10 rounded-2xl px-4 py-2 text-white font-black placeholder:text-white/10 focus:ring-2 focus:ring-pink-500 outline-none transition-all uppercase tracking-widest text-sm shadow-inner"
                                                 placeholder="ENTER CAPTION..."
                                                 autoFocus
                                             />
@@ -548,7 +607,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                         <div className="flex gap-2">
                                             <button 
                                                 onClick={() => setSelectedTextId(null)}
-                                                className="bg-green-500 text-white p-4 rounded-2xl shadow-lg shadow-green-500/20 active:scale-90 transition-all"
+                                                className="bg-green-500 text-white p-3 rounded-2xl shadow-lg shadow-green-500/20 active:scale-90 transition-all"
                                             >
                                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                                             </button>
@@ -557,7 +616,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                                     setOverlays(prev => prev.filter(o => o.id !== selectedTextId));
                                                     setSelectedTextId(null);
                                                 }}
-                                                className="bg-zinc-800 text-red-500 p-4 rounded-2xl border border-white/10 active:scale-90 transition-all"
+                                                className="bg-zinc-800 text-red-500 p-3 rounded-2xl border border-white/10 active:scale-90 transition-all"
                                             >
                                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                             </button>
@@ -570,7 +629,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                             <button 
                                                 key={tab}
                                                 onClick={() => setTextTab(tab)}
-                                                className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${textTab === tab ? 'bg-zinc-800 text-pink-500 shadow-xl' : 'text-white/40 hover:text-white'}`}
+                                                className={`flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${textTab === tab ? 'bg-zinc-800 text-pink-500 shadow-xl' : 'text-white/40 hover:text-white'}`}
                                             >
                                                 {tab}
                                             </button>
@@ -578,12 +637,12 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                     </div>
 
                                     {/* Tab Content */}
-                                    <div className="space-y-6 px-1">
+                                    <div className="space-y-4 px-1">
                                         {textTab !== 'anim' ? (
                                             <>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Color Palette</span>
-                                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+                                                    <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide snap-x">
                                                         {['#ffffff', '#000000', '#ec4899', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ef4444'].map(color => {
                                                             const current = overlays.find(o => o.id === selectedTextId);
                                                             const isActive = textTab === 'text' ? current?.color === color : textTab === 'bg' ? current?.bgColor === color : current?.borderColor === color;
@@ -594,14 +653,14 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                                                         ...o, 
                                                                         [textTab === 'text' ? 'color' : textTab === 'bg' ? 'bgColor' : 'borderColor']: color 
                                                                     } : o))}
-                                                                    className={`w-10 h-10 rounded-[1rem] border-2 transition-all flex-shrink-0 snap-center ${isActive ? 'border-pink-500 scale-110 shadow-lg shadow-pink-500/30' : 'border-white/10'}`}
+                                                                    className={`w-8 h-8 rounded-[1rem] border-2 transition-all flex-shrink-0 snap-center ${isActive ? 'border-pink-500 scale-110 shadow-lg shadow-pink-500/30' : 'border-white/10'}`}
                                                                     style={{ backgroundColor: color }}
                                                                 />
                                                             );
                                                         })}
                                                     </div>
                                                 </div>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     <div className="flex justify-between items-center">
                                                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Opacity</span>
                                                         <span className="text-xs font-black text-pink-500">{Math.round((overlays.find(o => o.id === selectedTextId)?.[textTab === 'text' ? 'opacity' : textTab === 'bg' ? 'bgOpacity' : 'borderOpacity'] || 0) * 100)}%</span>
@@ -623,7 +682,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                                     <button 
                                                         key={anim}
                                                         onClick={() => setOverlays(prev => prev.map(o => o.id === selectedTextId ? { ...o, animation: anim } : o))}
-                                                        className={`py-4 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${overlays.find(o => o.id === selectedTextId)?.animation === anim ? 'border-pink-500 bg-pink-500/10 text-white shadow-xl' : 'border-white/5 bg-white/5 text-white/40 hover:text-white'}`}
+                                                        className={`py-3 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${overlays.find(o => o.id === selectedTextId)?.animation === anim ? 'border-pink-500 bg-pink-500/10 text-white shadow-xl' : 'border-white/5 bg-white/5 text-white/40 hover:text-white'}`}
                                                     >
                                                         {anim}
                                                     </button>
@@ -664,7 +723,7 @@ vfs.push(`drawtext=text='${o.text.toUpperCase()}':fontcolor=${o.color}@${alphaEx
                                         onClick={() => setSpeed(s)}
                                         className={`flex-1 py-3 rounded-lg font-black text-[10px] transition-all ${speed === s ? 'bg-pink-500 text-white shadow-xl shadow-pink-500/20' : 'text-white/40 hover:text-white'}`}
                                     >
-                                        {s === 0.5 ? 'SLOW' : s === 2 ? 'FAST' : 'NORMAL'}
+                                        {s === 0.8 ? 'SLOW' : s === 1.2 ? 'FAST' : 'NORMAL'}
                                         <div className="text-[8px] opacity-40 mt-0.5">{s}x</div>
                                     </button>
                                 ))}
