@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../../lib/supabase';
-import { getEffectiveUserId } from '../../../../lib/auth-util';
+import { supabase } from '../../../../../lib/supabase';
 
 export async function POST(req: Request) {
     try {
