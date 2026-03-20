@@ -91,7 +91,7 @@ export async function POST(req: Request) {
                 content: captions[i],
                 media_urls: [], // In the future, attach Dance Together default promo images/videos
                 scheduled_at: scheduledAt.toISOString(),
-                status: 'pending'
+                status: 'draft'
             });
         }
 

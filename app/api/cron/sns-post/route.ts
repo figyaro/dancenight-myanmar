@@ -55,13 +55,13 @@ export async function GET(req: Request) {
         const { data: pendingPosts, error: fetchError } = await supabase
             .from('sns_posts')
             .select('id, platform, content, media_urls, scheduled_at, sns_settings(credentials, is_active)')
-            .eq('status', 'pending')
+            .eq('status', 'approved')
             .lte('scheduled_at', now)
             .limit(10); // Process in batches
 
         if (fetchError) throw fetchError;
         if (!pendingPosts || pendingPosts.length === 0) {
-            return NextResponse.json({ success: true, message: 'No pending posts' });
+            return NextResponse.json({ success: true, message: 'No approved posts ready to be published' });
         }
 
         const results = [];

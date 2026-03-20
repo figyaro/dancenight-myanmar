@@ -20,6 +20,8 @@ export default function SnsGenerator() {
     const [posts, setPosts] = useState<any[]>([]);
     const [viralUrl, setViralUrl] = useState('');
     const [generating, setGenerating] = useState(false);
+    const [editingPost, setEditingPost] = useState<any>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -85,11 +87,39 @@ export default function SnsGenerator() {
         }
     };
 
+    const updatePostStatus = async (id: string, newStatus: string) => {
+        try {
+            await supabase.from('sns_posts').update({ status: newStatus }).eq('id', id);
+            loadData();
+        } catch(err: any) { alert(err.message); }
+    };
+
+    const deletePost = async (id: string) => {
+        if(!confirm('Delete this scheduled post?')) return;
+        try {
+            await supabase.from('sns_posts').delete().eq('id', id);
+            loadData();
+        } catch(err: any) { alert(err.message); }
+    };
+
+    const saveEdit = async () => {
+        if(!editingPost) return;
+        setIsSaving(true);
+        try {
+            await supabase.from('sns_posts').update({ 
+                content: editingPost.content, 
+                scheduled_at: editingPost.scheduled_at 
+            }).eq('id', editingPost.id);
+            setEditingPost(null);
+            loadData();
+        } catch(err: any) { alert(err.message); } finally { setIsSaving(false); }
+    };
+
     if (loading) return <LoadingScreen />;
 
     const currentSettings = settings[activeTab] || { is_active: false, posts_per_day_min: 3, posts_per_day_max: 5, credentials: {} };
-    const upcomingPosts = posts.filter(p => p.platform === activeTab && p.status === 'pending');
-    const pastPosts = posts.filter(p => p.platform === activeTab && p.status !== 'pending');
+    const upcomingPosts = posts.filter(p => p.platform === activeTab && ['draft', 'approved', 'pending'].includes(p.status));
+    const pastPosts = posts.filter(p => p.platform === activeTab && !['draft', 'approved', 'pending'].includes(p.status));
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -171,23 +201,65 @@ export default function SnsGenerator() {
                         <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
                             <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Upcoming Posts ({upcomingPosts.length})</h3>
                         </div>
-                        <div className="p-4 space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                        <div className="p-4 space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
                             {upcomingPosts.length === 0 ? (
                                 <div className="text-center py-8 text-zinc-600 text-xs font-bold uppercase tracking-widest">No posts queued</div>
                             ) : upcomingPosts.map((post) => (
-                                <div key={post.id} className="bg-black/40 border border-white/5 rounded-xl p-4 flex gap-4 items-start">
-                                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-zinc-500 shrink-0">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[10px] text-pink-500 font-black uppercase tracking-widest">
-                                                {new Date(post.scheduled_at).toLocaleString()}
-                                            </span>
-                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-bold tracking-widest uppercase border border-white/5">Pending</span>
+                                <div key={post.id} className="bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col gap-3">
+                                    <div className="flex gap-4 items-start">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${post.status === 'approved' ? 'bg-green-500/10 text-green-500' : 'bg-pink-500/10 text-pink-500'}`}>
+                                            {post.status === 'approved' ? (
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            ) : (
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                            )}
                                         </div>
-                                        <p className="text-sm text-zinc-300 font-medium line-clamp-2">{post.content}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${post.status === 'approved' ? 'text-green-500' : 'text-zinc-400'}`}>
+                                                    {new Date(post.scheduled_at).toLocaleString()}
+                                                </span>
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest uppercase border ${post.status === 'approved' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-zinc-800 text-zinc-400 border-white/5'}`}>
+                                                    {post.status}
+                                                </span>
+                                            </div>
+                                            
+                                            {editingPost?.id === post.id ? (
+                                                <div className="space-y-3 mt-2 pr-2">
+                                                    <textarea 
+                                                        value={editingPost.content}
+                                                        onChange={e => setEditingPost({...editingPost, content: e.target.value})}
+                                                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-pink-500 outline-none resize-none"
+                                                        rows={5}
+                                                    />
+                                                    <input 
+                                                        type="datetime-local"
+                                                        value={new Date(new Date(editingPost.scheduled_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                                                        onChange={e => setEditingPost({...editingPost, scheduled_at: new Date(e.target.value).toISOString()})}
+                                                        className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-xs text-white font-bold focus:border-pink-500 outline-none"
+                                                    />
+                                                    <div className="flex gap-2 justify-end pt-2">
+                                                        <button onClick={() => setEditingPost(null)} className="px-3 py-2 rounded-lg bg-zinc-800 text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-white">Cancel</button>
+                                                        <button onClick={saveEdit} disabled={isSaving} className="px-4 py-2 rounded-lg bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-pink-500">{isSaving ? 'Saving...' : 'Save'}</button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-zinc-300 font-medium whitespace-pre-wrap">{post.content}</p>
+                                            )}
+                                        </div>
                                     </div>
+                                    {!editingPost && (
+                                        <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-white/5">
+                                            {post.status !== 'approved' && (
+                                                <button onClick={() => updatePostStatus(post.id, 'approved')} className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] font-black uppercase tracking-widest hover:bg-green-500/20">Approve</button>
+                                            )}
+                                            {post.status === 'approved' && (
+                                                <button onClick={() => updatePostStatus(post.id, 'draft')} className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500/20">Draft</button>
+                                            )}
+                                            <button onClick={() => setEditingPost(post)} className="px-3 py-1.5 rounded-lg bg-white/5 text-zinc-400 border border-white/5 text-[9px] font-black uppercase tracking-widest hover:text-white hover:bg-white/10">Edit</button>
+                                            <button onClick={() => deletePost(post.id)} className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-black uppercase tracking-widest hover:bg-red-500/20">Delete</button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
