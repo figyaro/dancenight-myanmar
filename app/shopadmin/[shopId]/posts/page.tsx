@@ -284,7 +284,15 @@ export default function ShopPostManagement() {
                                 >
                                     {mediaPreview ? (
                                         <div className="relative w-full h-full">
-                                            <img src={mediaPreview} className="w-full h-full object-cover" alt="Preview" />
+                                            {mediaFile?.type.startsWith('video/') ? (
+                                                <video 
+                                                    src={mediaPreview} 
+                                                    className="w-full h-full object-cover" 
+                                                    autoPlay muted loop playsInline 
+                                                />
+                                            ) : (
+                                                <img src={mediaPreview} className="w-full h-full object-cover" alt="Preview" />
+                                            )}
                                             {isSubmitting && (
                                                 <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300">
                                                     <CircularProgress percentage={uploadProgress} />
