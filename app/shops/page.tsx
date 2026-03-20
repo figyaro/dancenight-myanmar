@@ -6,6 +6,7 @@ import { t } from '../../lib/i18n';
 import TopNav from '../components/TopNav';
 import BottomNav from '../components/BottomNav';
 import Link from 'next/link';
+import { isBunnyStream, getBunnyStreamVideoUrl, isVideo } from '../../lib/bunny';
 
 interface Shop {
     id: string;
@@ -17,6 +18,7 @@ interface Shop {
     category: string;
     plan?: { price_monthly: number } | null;
     recentPostCount?: number;
+    recentPosts?: any[];
     isPaid?: boolean;
     randomSort?: number;
 }
@@ -98,17 +100,19 @@ export default function Shops() {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             
             const shopIds = shopsData?.map(s => s.id) || [];
-            let postCounts: Record<string, number> = {};
+            let shopPosts: Record<string, any[]> = {};
             
             if (shopIds.length > 0) {
                 const { data: postsData } = await supabase
                     .from('posts')
-                    .select('shop_id')
+                    .select('shop_id, main_image_url, created_at')
                     .in('shop_id', shopIds)
-                    .gte('created_at', thirtyDaysAgo.toISOString());
+                    .gte('created_at', thirtyDaysAgo.toISOString())
+                    .order('created_at', { ascending: false });
 
                 postsData?.forEach(post => {
-                    postCounts[post.shop_id] = (postCounts[post.shop_id] || 0) + 1;
+                    if (!shopPosts[post.shop_id]) shopPosts[post.shop_id] = [];
+                    shopPosts[post.shop_id].push(post);
                 });
             }
 
@@ -120,9 +124,11 @@ export default function Shops() {
                 } else if (shop.plan) {
                     monthlyPrice = shop.plan.price_monthly || 0;
                 }
+                const recentPosts = shopPosts[shop.id] || [];
                 return {
                     ...shop,
-                    recentPostCount: postCounts[shop.id] || 0,
+                    recentPostCount: recentPosts.length,
+                    recentPosts: recentPosts.slice(0, 5), // Keep up to 5 latest posts for thumbnails
                     isPaid: monthlyPrice > 0,
                 };
             });
@@ -323,11 +329,47 @@ export default function Shops() {
                                             </div>
                                         </div>
 
-                                        {/* Card Text Content - Compacted */}
-                                        <div className="px-8 py-5">
-                                            <p className="text-zinc-400 text-xs font-medium leading-relaxed line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                {shop.description || "Indulge in an exclusive atmosphere where premium services meet unforgettable entertainment experiences."}
-                                            </p>
+                                        {/* Shop Recent Posts Thumbnails */}
+                                        <div className="px-8 py-5 flex items-center gap-3 overflow-x-auto scrollbar-hide">
+                                            {shop.recentPosts && shop.recentPosts.length > 0 ? (
+                                                <>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-pink-500 whitespace-nowrap">Latest:</span>
+                                                    {shop.recentPosts.map((post, i) => {
+                                                        const mediaUrl = post.main_image_url;
+                                                        return (
+                                                            <div key={i} className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden border border-white/10 shrink-0 relative group-hover:border-pink-500/30 transition-colors">
+                                                                {mediaUrl ? (
+                                                                    isBunnyStream(mediaUrl) || isVideo(mediaUrl) ? (
+                                                                        <div className="w-full h-full relative">
+                                                                            <video 
+                                                                                src={isBunnyStream(mediaUrl) ? getBunnyStreamVideoUrl(mediaUrl) || '' : mediaUrl} 
+                                                                                className="w-full h-full object-cover opacity-80"
+                                                                                muted playsInline preload="metadata"
+                                                                            />
+                                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <img src={mediaUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
+                                                                    )
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-[10px] opacity-40 grayscale">📸</div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {(shop.recentPostCount || 0) > 5 && (
+                                                        <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-[9px] font-black tracking-widest text-pink-500 shrink-0">
+                                                            +{(shop.recentPostCount || 0) - 5}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="flex items-center gap-3 text-zinc-600">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest">No recent updates</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </Link>
