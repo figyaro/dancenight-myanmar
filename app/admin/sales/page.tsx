@@ -423,7 +423,17 @@ export default function SalesManagement() {
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-2xl bg-black flex-shrink-0 overflow-hidden border border-white/5">
                                                         {lead.metadata?.photo_url ? (
-                                                            <img src={lead.metadata.photo_url} alt={lead.name} className="w-full h-full object-contain" />
+                                                            <img 
+                                                                src={lead.metadata.photo_url} 
+                                                                alt={lead.name} 
+                                                                className="w-full h-full object-cover" 
+                                                                referrerPolicy="no-referrer"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.onerror = null;
+                                                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='2'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+                                                                    e.currentTarget.className = "w-full h-full object-center p-3 opacity-50";
+                                                                }}
+                                                            />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-zinc-700 bg-zinc-900">
                                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -560,7 +570,17 @@ export default function SalesManagement() {
                                         {/* Photo Thumbnail */}
                                         <div className="w-20 h-20 rounded-2xl bg-black flex-shrink-0 overflow-hidden border border-white/5">
                                             {res.photo_url ? (
-                                                <img src={res.photo_url} alt={res.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" />
+                                                <img 
+                                                    src={res.photo_url} 
+                                                    alt={res.name} 
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                                    referrerPolicy="no-referrer"
+                                                    onError={(e) => {
+                                                        e.currentTarget.onerror = null;
+                                                        e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f3f46' stroke-width='2'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
+                                                        e.currentTarget.className = "w-full h-full object-center p-5 opacity-50";
+                                                    }}
+                                                />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-zinc-700">
                                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
