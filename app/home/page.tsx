@@ -131,11 +131,59 @@ function HomeFeedContent() {
                 };
 
                 const targetUserId = searchParams.get('userId');
+                const targetShopId = searchParams.get('shopId');
+                const targetPostId = searchParams.get('postId');
+                
                 let data, error;
                 let mappedResult: Post[] = [];
                 let fallbackResult: Post[] = [];
 
-                if (targetUserId && isValidUUID(targetUserId)) {
+                if (targetShopId && isValidUUID(targetShopId)) {
+                    // Fetch all posts for the specific shop
+                    const { data: shopData, error: shopError } = await supabase
+                        .from('posts')
+                        .select('*, users(nickname, avatar_url, role)')
+                        .eq('shop_id', targetShopId)
+                        .order('created_at', { ascending: false });
+
+                    // Fetch generic recommended feed
+                    const { data: recData, error: recError } = await supabase
+                        .rpc('get_recommended_posts_v2', { p_viewer_id: isValidUUID(effectiveUserId) ? effectiveUserId : null });
+
+                    error = shopError || recError;
+
+                    if (!error && shopData) {
+                        // Priority 1: The target post
+                        const priorityPosts = targetPostId ? shopData.filter((p: any) => p.id === targetPostId) : [];
+                        // Priority 2: Other posts from the same shop
+                        const otherShopPosts = shopData.filter((p: any) => p.id !== targetPostId);
+                        
+                        // Map recommended posts to standard format
+                        const mappedRecData = (recData || []).map((item: any) => ({
+                            id: item.out_id || item.id,
+                            user_id: item.out_user_id || item.user_id,
+                            area: item.out_area || item.area,
+                            name: item.out_name || item.name,
+                            title: item.out_title || item.title,
+                            price_per_hour: item.out_price_per_hour || item.price_per_hour,
+                            currency: item.out_currency || item.currency,
+                            rating: item.out_rating !== undefined ? item.out_rating : item.rating,
+                            main_image_url: item.out_main_image_url || item.main_image_url,
+                            location_name: item.out_location_name || item.location_name,
+                            shop_id: item.out_shop_id || item.shop_id,
+                            created_at: item.out_created_at || item.created_at,
+                            users: item.out_users || item.users,
+                            score: item.out_score || item.score
+                        }));
+
+                        // Deduplicate recommended posts (remove those that are already in shopData)
+                        const shopPostIds = new Set(shopData.map((p: any) => p.id));
+                        const filteredRecData = mappedRecData.filter((p: any) => !shopPostIds.has(p.id));
+
+                        mappedResult = [...priorityPosts, ...otherShopPosts, ...filteredRecData] as Post[];
+                        setPosts(mappedResult);
+                    }
+                } else if (targetUserId && isValidUUID(targetUserId)) {
                     // Fetch all posts for a specific user
                     const { data: userData, error: userError } = await supabase
                         .from('posts')
@@ -165,7 +213,7 @@ function HomeFeedContent() {
                     if (fallbackError) throw fallbackError;
                     fallbackResult = fallbackData as Post[];
                     setPosts(fallbackResult);
-                } else if (data) {
+                } else if (data && mappedResult.length === 0) {
                     const mappedData = data.map((item: any) => ({
                         id: item.out_id || item.id,
                         user_id: item.out_user_id || item.user_id,

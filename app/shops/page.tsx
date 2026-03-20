@@ -105,7 +105,7 @@ export default function Shops() {
             if (shopIds.length > 0) {
                 const { data: postsData } = await supabase
                     .from('posts')
-                    .select('shop_id, main_image_url, created_at')
+                    .select('id, shop_id, main_image_url, created_at')
                     .in('shop_id', shopIds)
                     .gte('created_at', thirtyDaysAgo.toISOString())
                     .order('created_at', { ascending: false });
@@ -337,26 +337,28 @@ export default function Shops() {
                                                     {shop.recentPosts.map((post, i) => {
                                                         const mediaUrl = post.main_image_url;
                                                         return (
-                                                            <div key={i} className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden border border-white/10 shrink-0 relative group-hover:border-pink-500/30 transition-colors">
-                                                                {mediaUrl ? (
-                                                                    isBunnyStream(mediaUrl) || isVideo(mediaUrl) ? (
-                                                                        <div className="w-full h-full relative">
-                                                                            <video 
-                                                                                src={isBunnyStream(mediaUrl) ? getBunnyStreamVideoUrl(mediaUrl) || '' : mediaUrl} 
-                                                                                className="w-full h-full object-cover opacity-80"
-                                                                                muted playsInline preload="metadata"
-                                                                            />
-                                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                            <Link href={`/home?postId=${post.id}&shopId=${shop.id}`} key={i} onClick={(e) => e.stopPropagation()}>
+                                                                <div className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden border border-white/10 shrink-0 relative group-hover:border-pink-500/30 transition-colors shadow-lg hover:scale-110 duration-300">
+                                                                    {mediaUrl ? (
+                                                                        isBunnyStream(mediaUrl) || isVideo(mediaUrl) ? (
+                                                                            <div className="w-full h-full relative">
+                                                                                <video 
+                                                                                    src={isBunnyStream(mediaUrl) ? getBunnyStreamVideoUrl(mediaUrl) || '' : mediaUrl} 
+                                                                                    className="w-full h-full object-cover opacity-80"
+                                                                                    muted playsInline preload="metadata"
+                                                                                />
+                                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
+                                                                        ) : (
+                                                                            <img src={mediaUrl} className="w-full h-full object-cover transition-transform duration-500 hover:scale-125" alt="" />
+                                                                        )
                                                                     ) : (
-                                                                        <img src={mediaUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
-                                                                    )
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center text-[10px] opacity-40 grayscale">📸</div>
-                                                                )}
-                                                            </div>
+                                                                        <div className="w-full h-full flex items-center justify-center text-[10px] opacity-40 grayscale">📸</div>
+                                                                    )}
+                                                                </div>
+                                                            </Link>
                                                         );
                                                     })}
                                                     {(shop.recentPostCount || 0) > 5 && (
