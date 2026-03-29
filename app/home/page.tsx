@@ -772,12 +772,18 @@ function HomeFeedContent() {
                     </div>
                 )}
                 {!loading && posts.map((post, index) => {
-                    const isNearActive = Math.abs(index - activeIndex) <= 1;
+                    // Preload 1 previous and 2 next videos for maximum smoothness
+                    const isNearActive = index >= activeIndex - 1 && index <= activeIndex + 2;
+                    const isPriorityNext = index === activeIndex + 1;
+                    const isActive = index === activeIndex;
                     return (
                         <div
                         key={post.id}
+                        onMouseDown={unlockAudioOnFirstInteraction}
+                        onTouchStart={unlockAudioOnFirstInteraction}
                         ref={el => { postRefs.current[post.id] = el; }}
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
+                        style={{ willChange: 'transform' }}
                     >
                         {post.main_image_url ? (
                             isVideo(post.main_image_url) ? (
@@ -809,7 +815,8 @@ function HomeFeedContent() {
                                                     onProgress={(p) => {
                                                         if (activePostId === post.id) setVideoBuffered(p);
                                                     }}
-                                                    seekTo={activePostId === post.id ? seekTrigger?.time : undefined}
+                                                    seekTo={isActive ? seekTrigger?.time : undefined}
+                                                    preload={isActive || isPriorityNext ? "auto" : "metadata"}
                                                 />
                                             </div>
 
@@ -1014,17 +1021,16 @@ function HomeFeedContent() {
                             </div>
                         )}
                         <div
-                            className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/90"
-                            style={{ opacity: visibilityRatios[post.id] ?? 0 }}
+                            className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/95 transition-opacity duration-300"
+                            style={{ opacity: activePostId === post.id ? 1 : 0 }}
                         />
 
                         {/* Info Area */}
                         <div
-                            className="absolute bottom-28 left-4 right-16 pointer-events-none z-20"
+                            className="absolute bottom-28 left-4 right-16 pointer-events-none z-20 transition-all duration-300"
                             style={{
-                                opacity: visibilityRatios[post.id] ?? 0,
-                                transform: `translateY(${(1 - (visibilityRatios[post.id] ?? 0)) * 20}px)`,
-                                transition: 'opacity 0.2s linear'
+                                opacity: activePostId === post.id ? 1 : 0,
+                                transform: `translateY(${activePostId === post.id ? 0 : 20}px)`,
                             }}
                         >
                             <div className="flex items-center gap-2 mb-3">
@@ -1057,11 +1063,10 @@ function HomeFeedContent() {
 
                         {/* Interaction Menu */}
                         <div
-                            className="absolute bottom-28 right-4 flex flex-col gap-5 items-center w-14 pointer-events-auto z-20"
+                            className="absolute bottom-28 right-4 flex flex-col gap-5 items-center w-14 pointer-events-auto z-20 transition-all duration-300"
                             style={{
-                                opacity: visibilityRatios[post.id] ?? 0,
-                                transform: `translateX(${(1 - (visibilityRatios[post.id] ?? 0)) * 20}px)`,
-                                transition: 'opacity 0.1s linear'
+                                opacity: activePostId === post.id ? 1 : 0,
+                                transform: `translateX(${activePostId === post.id ? 0 : 20}px)`,
                             }}
                         >
                             {/* Profile Pic */}

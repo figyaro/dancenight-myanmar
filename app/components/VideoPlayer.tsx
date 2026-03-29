@@ -28,6 +28,7 @@ interface VideoPlayerProps {
   onProgress?: (buffered: number) => void;
   seekTo?: number; // External seek trigger
   objectFit?: 'cover' | 'contain';
+  preload?: 'auto' | 'metadata' | 'none';
 }
 
 /**
@@ -50,7 +51,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onDurationChange,
   onProgress,
   seekTo,
-  objectFit = 'cover'
+  objectFit = 'cover',
+  preload = 'auto'
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -93,17 +95,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       } else if (Hls && Hls.isSupported()) {
         // CASE 2: hls.js fallback for other browsers
-        // Optimized settings for mobile/low-latency startup
+        // Optimized settings for mobile/low-latency startup (TikTok-like)
         const hls = new Hls({
           enableWorker: true, 
           capLevelToPlayerSize: true,
           liveSyncDurationCount: 3,
-          maxBufferLength: 10,          // Keep buffer small for faster start
-          maxMaxBufferLength: 20,
-          startLevel: 0,                // Start at lowest quality for instant playback
+          maxBufferLength: 5,           // Extremely tight buffer for fast start
+          maxMaxBufferLength: 10,
+          maxBufferSize: 30 * 1000 * 1000, // 30MB
+          backBufferLength: 0,          // No back buffer on mobile to save memory
+          startLevel: 0,                // Always start at lowest quality for instant playback
           abrEwmaDefaultEstimate: 500000,
-          manifestLoadingMaxRetry: 3,
-          levelLoadingMaxRetry: 3,
+          manifestLoadingMaxRetry: 5,
+          levelLoadingMaxRetry: 5,
+          nudgeOffset: 0.1,             // Skip small gaps to prevent stalling
+          nudgeMaxRetry: 10,
         });
         
         hlsRef.current = hls;
@@ -234,7 +240,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onTimeUpdate={handleTimeUpdate}
       onProgress={handleProgress}
       style={{ objectFit }}
-      preload="auto"
+      preload={preload}
     />
   );
 };
