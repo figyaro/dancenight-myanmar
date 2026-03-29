@@ -85,6 +85,15 @@ function HomeFeedContent() {
     const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
     const [followingIds, setFollowingIds] = useState<string[]>([]);
     const [showSuccessNotification, setShowSuccessNotification] = useState<string | null>(null);
+    
+    // Player Controls State
+    const [showControlsId, setShowControlsId] = useState<string | null>(null);
+    const [videoTime, setVideoTime] = useState(0);
+    const [videoDuration, setVideoDuration] = useState(0);
+    const [videoBuffered, setVideoBuffered] = useState(0);
+    const [seekTrigger, setSeekTrigger] = useState<{ time: number } | null>(null);
+    const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
 
     const searchParams = useSearchParams();
     const postIdParam = searchParams.get('postId');
@@ -411,20 +420,14 @@ function HomeFeedContent() {
         const vh = container.clientHeight;
         const scrollTop = container.scrollTop;
 
-        const newRatios: Record<string, number> = {};
-        posts.forEach((post, index) => {
-            const postTop = index * vh;
-            const distance = Math.abs(scrollTop - postTop);
-            const progress = Math.max(0, 1 - (distance / vh));
-            newRatios[post.id] = progress;
-        });
-
-        setVisibilityRatios(newRatios);
-
+        // Simplify: Only calculate activePostId from scroll
         const activeIndex = Math.round(scrollTop / vh);
         const currentPost = posts[activeIndex];
         if (currentPost && currentPost.id !== activePostId) {
             setActivePostId(currentPost.id);
+            // Hide controls When switching posts
+            setShowControlsId(null);
+            if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
         }
     };
 
@@ -521,22 +524,15 @@ function HomeFeedContent() {
         }
     }, [activePostId]);
 
-    const forcePlayActivePost = () => {
-        if (!activePostId) return;
-        const container = postRefs.current[activePostId];
-        const video = container?.querySelector('video');
-        const iframe = container?.querySelector('iframe');
+    const unlockAudioOnFirstInteraction = () => {
+        if (!hasInteracted) {
+            setHasInteracted(true);
+            setIsMuted(false);
+        }
+    };
 
-        if (video) {
-            video.muted = false;
-            video.play().catch(e => console.warn("Force play failed:", e));
-        }
-        if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
-            iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
-            iframe.contentWindow.postMessage('play', '*');
-            iframe.contentWindow.postMessage('unmute', '*');
-        }
+    const forcePlayActivePost = () => {
+        // Obsolete as VideoPlayer handles this via isPlaying prop now
     };
 
     // Global interaction listener to "unlock" video on iOS
@@ -545,7 +541,6 @@ function HomeFeedContent() {
             if (!hasInteracted) {
                 setHasInteracted(true);
                 setIsMuted(false); // Enable sound globally on first interaction
-                forcePlayActivePost();
             }
             window.removeEventListener('touchstart', handleFirstInteraction);
             window.removeEventListener('mousedown', handleFirstInteraction);
@@ -635,36 +630,41 @@ function HomeFeedContent() {
         const isPostVideo = currentPost && isVideo(currentPost.main_image_url);
         if (!isPostVideo) return; // Ignore taps on images
 
-        // SYNC TRIGGER FOR MOBILE
+        // SYNC TRIGGER FOR MOBILE (First interaction)
         if (!hasInteracted && activePostId) {
             setHasInteracted(true);
             setIsMuted(false);
-
-            // Directly finding video/iframe for immediate sync play
             const container = postRefs.current[activePostId];
             if (container) {
                 const video = container.querySelector('video');
-                const iframe = container.querySelector('iframe');
                 if (video) {
                     video.muted = false;
                     video.play().catch((err: any) => console.error("Sync play failed", err));
                 }
-                if (iframe && iframe.contentWindow) {
-                    iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
-                    iframe.contentWindow.postMessage(JSON.stringify({ method: 'unmute' }), '*');
-                    iframe.contentWindow.postMessage('play', '*');
-                    iframe.contentWindow.postMessage('unmute', '*');
-                }
             }
         }
         
-        const newState = !isPlaying;
-        setIsPlaying(newState);
-        setFaintIcon(newState ? 'play' : 'pause');
-
-        if (iconTimerRef.current) clearTimeout(iconTimerRef.current);
-        iconTimerRef.current = setTimeout(() => setFaintIcon(null), 1200);
+        // Toggle controls visibility instead of play/pause
+        if (showControlsId === activePostId) {
+            setShowControlsId(null);
+            if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+        } else {
+            setShowControlsId(activePostId);
+            // Reset timer
+            if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+            controlsTimerRef.current = setTimeout(() => {
+                setShowControlsId(null);
+            }, 4000); // Hide after 4 seconds of inactivity
+        }
     };
+
+    const formatTime = (seconds: number) => {
+        if (!seconds || isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
 
     const activeIndex = posts.findIndex(p => p.id === activePostId);
 
@@ -785,20 +785,114 @@ function HomeFeedContent() {
                                     {isNearActive ? (
                                         <>
                                             <div className={`absolute inset-0 transition-opacity duration-1000 ${isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                                        <VideoPlayer
-                                            url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
-                                            poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
-                                            className="w-full h-full"
-                                            // Play only when strongly visible (> 50%) and global isPlaying is true
-                                            isPlaying={activePostId === post.id && isPlaying && (visibilityRatios[post.id] || 0) > 0.5}
-                                            // Mute immediately if moving off-screen (visibility < 95%) or globally muted
-                                            isMuted={!hasInteracted || isMuted || (visibilityRatios[post.id] || 0) < 0.95}
-                                            volume={volume}
-                                            autoPlay={activePostId === post.id}
-                                            loop={true}
-                                            objectFit="cover"
-                                        />
-                                    </div>
+                                                <VideoPlayer
+                                                    url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
+                                                    poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
+                                                    className="w-full h-full"
+                                                    // Play only when centered active video
+                                                    isPlaying={activePostId === post.id && isPlaying}
+                                                    // Mute based on global state
+                                                    isMuted={!hasInteracted || isMuted}
+                                                    volume={volume}
+                                                    autoPlay={activePostId === post.id}
+                                                    loop={true}
+                                                    objectFit="cover"
+                                                    onTimeUpdate={(t) => {
+                                                        if (activePostId === post.id) {
+                                                            setVideoTime(t);
+                                                            // Keep controls visible while interacting/scrubbing if needed
+                                                        }
+                                                    }}
+                                                    onDurationChange={(d) => {
+                                                        if (activePostId === post.id) setVideoDuration(d);
+                                                    }}
+                                                    onProgress={(p) => {
+                                                        if (activePostId === post.id) setVideoBuffered(p);
+                                                    }}
+                                                    seekTo={activePostId === post.id ? seekTrigger?.time : undefined}
+                                                />
+                                            </div>
+
+                                            {/* Simple Player Controls Overlay */}
+                                            {activePostId === post.id && (
+                                                <div className={`absolute bottom-24 left-0 right-0 px-4 z-[70] transition-all duration-500 transform ${showControlsId === post.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                                                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl">
+                                                        {/* Seek Bar */}
+                                                        <div className="relative w-full h-1.5 bg-white/10 rounded-full mb-4 overflow-hidden group cursor-pointer">
+                                                            {/* Buffered progress */}
+                                                            <div 
+                                                                className="absolute top-0 left-0 h-full bg-white/10 transition-all duration-300"
+                                                                style={{ width: `${(videoBuffered / videoDuration) * 100}%` }}
+                                                            />
+                                                            {/* Current progress */}
+                                                            <div 
+                                                                className="absolute top-0 left-0 h-full bg-pink-500 rounded-full"
+                                                                style={{ width: `${(videoTime / videoDuration) * 100}%` }}
+                                                            />
+                                                            <input 
+                                                                type="range"
+                                                                min="0"
+                                                                max={videoDuration || 100}
+                                                                step="0.1"
+                                                                value={videoTime}
+                                                                onChange={(e) => {
+                                                                    const time = parseFloat(e.target.value);
+                                                                    setVideoTime(time);
+                                                                    setSeekTrigger({ time });
+                                                                    // Reset auto-hide timer when interacting
+                                                                    if (controlsTimerRef.current) {
+                                                                        clearTimeout(controlsTimerRef.current);
+                                                                        controlsTimerRef.current = setTimeout(() => setShowControlsId(null), 4000);
+                                                                    }
+                                                                }}
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                            />
+                                                        </div>
+
+                                                        {/* Control Buttons */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-4">
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setIsPlaying(!isPlaying);
+                                                                        if (controlsTimerRef.current) {
+                                                                            clearTimeout(controlsTimerRef.current);
+                                                                            controlsTimerRef.current = setTimeout(() => setShowControlsId(null), 4000);
+                                                                        }
+                                                                    }}
+                                                                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                                                                >
+                                                                    {isPlaying ? (
+                                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                                                    ) : (
+                                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                                                                    )}
+                                                                </button>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className="text-white font-bold text-sm tracking-tighter">{formatTime(videoTime)}</span>
+                                                                    <span className="text-white/40 text-[10px] font-medium">/ {formatTime(videoDuration)}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setIsMuted(!isMuted);
+                                                                }}
+                                                                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"
+                                                            >
+                                                                {isMuted ? (
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                                                                ) : (
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
 
                                     {/* Video Processing Overlay - Redesigned with Blurred Thumbnail & Pulse */}
                                     {isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false && (

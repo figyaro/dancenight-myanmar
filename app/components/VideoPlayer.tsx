@@ -23,6 +23,10 @@ interface VideoPlayerProps {
   onEnded?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
+  onTimeUpdate?: (currentTime: number) => void;
+  onDurationChange?: (duration: number) => void;
+  onProgress?: (buffered: number) => void;
+  seekTo?: number; // External seek trigger
   objectFit?: 'cover' | 'contain';
 }
 
@@ -42,11 +46,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onEnded,
   onPlay,
   onPause,
+  onTimeUpdate,
+  onDurationChange,
+  onProgress,
+  seekTo,
   objectFit = 'cover'
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Handle external seek requests
+  useEffect(() => {
+    if (videoRef.current && seekTo !== undefined) {
+      videoRef.current.currentTime = seekTo;
+    }
+  }, [seekTo]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -65,27 +80,49 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         // CASE 1: iOS/Safari Native HLS Support (Highest Priority)
         video.src = url;
         video.load(); // Explicitly call load for iOS
-        video.addEventListener('loadedmetadata', () => {
+        
+        const handleLoadedMetadata = () => {
           setIsLoaded(true);
+          if (onDurationChange) onDurationChange(video.duration);
           if (autoPlay && isPlaying) {
             video.play().catch(err => console.warn('Native HLS play blocked:', err));
           }
-        });
+        };
+
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       } else if (Hls && Hls.isSupported()) {
         // CASE 2: hls.js fallback for other browsers
+        // Optimized settings for mobile/low-latency startup
         const hls = new Hls({
-          enableWorker: false, // More stable in some restricted environments
+          enableWorker: true, 
           capLevelToPlayerSize: true,
+          liveSyncDurationCount: 3,
+          maxBufferLength: 10,          // Keep buffer small for faster start
+          maxMaxBufferLength: 20,
+          startLevel: 0,                // Start at lowest quality for instant playback
+          abrEwmaDefaultEstimate: 500000,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 3,
         });
+        
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, (event: any, data: any) => {
           setIsLoaded(true);
           if (autoPlay && isPlaying) {
             video.play().catch(err => console.warn('Hls.js play blocked:', err));
           }
         });
+
+        hls.on(Hls.Events.LEVEL_LOADED, (event: any, data: any) => {
+          if (data.details.totalduration && onDurationChange) {
+            onDurationChange(data.details.totalduration);
+          }
+        });
+
         hls.on(Hls.Events.ERROR, (event: any, data: any) => {
           if (data.fatal) {
             switch (data.type) {
@@ -110,7 +147,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Standard MP4/WebM video
       video.src = url;
       video.load();
-      setIsLoaded(true);
+      // Wait for metadata to get duration
+      const handleMetadata = () => {
+        setIsLoaded(true);
+        if (onDurationChange) onDurationChange(video.duration);
+      };
+      video.addEventListener('loadedmetadata', handleMetadata);
+      return () => video.removeEventListener('loadedmetadata', handleMetadata);
     }
 
     return () => {
@@ -159,11 +202,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isMuted, volume, isPlaying]);
 
+  const handleTimeUpdate = () => {
+    if (videoRef.current && onTimeUpdate) {
+      onTimeUpdate(videoRef.current.currentTime);
+    }
+  };
+
+  const handleProgress = () => {
+    if (videoRef.current && onProgress && videoRef.current.buffered.length > 0) {
+      const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
+      onProgress(bufferedEnd);
+    }
+  };
+
   return (
     <video
       ref={videoRef}
       poster={poster}
-      className={`${className} transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+      className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
       // Essential attributes for iOS/Mobile to allow inline and auto-playback
       playsInline
       // @ts-ignore
@@ -175,6 +231,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onEnded={onEnded}
       onPlay={onPlay}
       onPause={onPause}
+      onTimeUpdate={handleTimeUpdate}
+      onProgress={handleProgress}
       style={{ objectFit }}
       preload="auto"
     />
