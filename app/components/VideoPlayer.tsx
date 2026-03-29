@@ -81,18 +81,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // CASE 1: iOS/Safari Native HLS Support (Highest Priority)
         video.src = url;
-        video.load(); // Explicitly call load for iOS
+        // Optimization for iPhone: Force immediate load and set playback hint
+        video.load(); 
         
         const handleLoadedMetadata = () => {
           setIsLoaded(true);
           if (onDurationChange) onDurationChange(video.duration);
           if (autoPlay && isPlaying) {
+            // Native iOS often requires a slight delay or user interaction, 
+            // but we try to play immediately if already interacted.
             video.play().catch(err => console.warn('Native HLS play blocked:', err));
           }
         };
 
+        const handleCanPlay = () => {
+          // Additional hint for iOS to indicate readiness
+          if (autoPlay && isPlaying && video.paused) {
+            video.play().catch(() => {});
+          }
+        };
+
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
-        return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('canplay', handleCanPlay);
+        
+        return () => {
+          video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          video.removeEventListener('canplay', handleCanPlay);
+        };
       } else if (Hls && Hls.isSupported()) {
         // CASE 2: hls.js fallback for other browsers
         // Optimized settings for mobile/low-latency startup (TikTok-like)

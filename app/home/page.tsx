@@ -98,6 +98,17 @@ function HomeFeedContent() {
     const searchParams = useSearchParams();
     const postIdParam = searchParams.get('postId');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768 || /iPhone|iPad|iPod/i.test(navigator.userAgent));
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const touchStartX = useRef<number | null>(null);
 
@@ -772,8 +783,12 @@ function HomeFeedContent() {
                     </div>
                 )}
                 {!loading && posts.map((post, index) => {
-                    // Preload 1 previous and 2 next videos for maximum smoothness
-                    const isNearActive = index >= activeIndex - 1 && index <= activeIndex + 2;
+                    // Mobile-specific optimization: Mount only current and next
+                    // Desktop can afford an extra previous/next buffer
+                    const isNearActive = isMobile 
+                        ? (index >= activeIndex && index <= activeIndex + 1)
+                        : (index >= activeIndex - 1 && index <= activeIndex + 2);
+                    
                     const isPriorityNext = index === activeIndex + 1;
                     const isActive = index === activeIndex;
                     return (
@@ -783,7 +798,11 @@ function HomeFeedContent() {
                         onTouchStart={unlockAudioOnFirstInteraction}
                         ref={el => { postRefs.current[post.id] = el; }}
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
-                        style={{ willChange: 'transform' }}
+                        style={{ 
+                            willChange: 'transform',
+                            transform: 'translateZ(0)', // Force GPU layering on iOS
+                            backfaceVisibility: 'hidden'
+                        }}
                     >
                         {post.main_image_url ? (
                             isVideo(post.main_image_url) ? (
