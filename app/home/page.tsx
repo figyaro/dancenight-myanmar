@@ -666,6 +666,8 @@ function HomeFeedContent() {
         iconTimerRef.current = setTimeout(() => setFaintIcon(null), 1200);
     };
 
+    const activeIndex = posts.findIndex(p => p.id === activePostId);
+
     return (
         <div className="bg-black text-white h-[100dvh] w-full overflow-hidden relative">
             <style jsx global>{`
@@ -769,8 +771,10 @@ function HomeFeedContent() {
                         </Link>
                     </div>
                 )}
-                {!loading && posts.map((post) => (
-                    <div
+                {!loading && posts.map((post, index) => {
+                    const isNearActive = Math.abs(index - activeIndex) <= 1;
+                    return (
+                        <div
                         key={post.id}
                         ref={el => { postRefs.current[post.id] = el; }}
                         className="h-[100dvh] w-full snap-start snap-always relative bg-zinc-900 flex items-center justify-center overflow-hidden shrink-0"
@@ -778,7 +782,9 @@ function HomeFeedContent() {
                         {post.main_image_url ? (
                             isVideo(post.main_image_url) ? (
                                 <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
-                                    <div className={`absolute inset-0 transition-opacity duration-1000 ${isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
+                                    {isNearActive ? (
+                                        <>
+                                            <div className={`absolute inset-0 transition-opacity duration-1000 ${isBunnyStream(post.main_image_url) && videoStatusMap[post.id]?.ready === false ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'}`}>
                                         <VideoPlayer
                                             url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
                                             poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
@@ -862,6 +868,16 @@ function HomeFeedContent() {
                                                 </div>
                                                 <span className="text-white font-black text-xs tracking-widest uppercase">Tap to unmute</span>
                                             </div>
+                                        </div>
+                                    )}
+                                        </>
+                                    ) : (
+                                        <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center">
+                                            <img
+                                                src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''}
+                                                className="w-full h-full object-cover"
+                                                alt={post.name}
+                                            />
                                         </div>
                                     )}
                                 </div>
@@ -1094,7 +1110,8 @@ function HomeFeedContent() {
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Comment Modal (Bottom Sheet) - Liquid Glass Redesign */}

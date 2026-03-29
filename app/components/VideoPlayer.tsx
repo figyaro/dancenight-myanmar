@@ -118,6 +118,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      if (video) {
+        video.removeAttribute('src'); // For native iOS
+        video.load(); // Flush buffer
+      }
     };
   }, [url, autoPlay]);
 
