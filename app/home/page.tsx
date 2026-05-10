@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import BottomNav from '../components/BottomNav';
 import TopNav from '../components/TopNav';
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { getEffectiveUserId } from '../../lib/auth-util';
 import { t } from '../../lib/i18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
@@ -99,6 +99,9 @@ function HomeFeedContent() {
     const postIdParam = searchParams.get('postId');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const activePostIdRef = useRef<string | null>(null);
+    const scrollRafRef = useRef<number | null>(null);
+    const warmedMediaRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         const checkMobile = () => {
@@ -113,8 +116,18 @@ function HomeFeedContent() {
     const touchStartX = useRef<number | null>(null);
 
     useEffect(() => {
+        activePostIdRef.current = activePostId;
+    }, [activePostId]);
+
+    useEffect(() => {
         const fetchInitialData = async () => {
             try {
+                if (!isSupabaseConfigured) {
+                    setPosts([]);
+                    setLoading(false);
+                    return;
+                }
+
                 // Use getSession() instead of getUser() for better performance and stability
                 const { data: { session } } = await supabase.auth.getSession();
                 const authUser = session?.user || null;
@@ -291,7 +304,10 @@ function HomeFeedContent() {
                     setVisibilityRatios(prev => ({ ...prev, [firstPostId]: 1.0 }));
                 }
             } catch (err) {
-                console.error("エラー: データの取得に失敗しました", err);
+                if (process.env.NODE_ENV === 'development') {
+                    console.warn('Home feed data fetch failed; falling back to an empty feed.', err);
+                }
+                setPosts([]);
             } finally {
                 setLoading(false);
             }
@@ -425,26 +441,41 @@ function HomeFeedContent() {
         touchStartX.current = null;
     };
 
-    const handleScroll = () => {
-        if (!scrollContainerRef.current) return;
-        const container = scrollContainerRef.current;
-        const vh = container.clientHeight;
-        const scrollTop = container.scrollTop;
+    const handleScroll = useCallback(() => {
+        if (scrollRafRef.current !== null) return;
 
-        // Simplify: Only calculate activePostId from scroll
-        const activeIndex = Math.round(scrollTop / vh);
-        const currentPost = posts[activeIndex];
-        if (currentPost && currentPost.id !== activePostId) {
-            setActivePostId(currentPost.id);
-            // Hide controls When switching posts
-            setShowControlsId(null);
-            if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-        }
-    };
+        scrollRafRef.current = window.requestAnimationFrame(() => {
+            scrollRafRef.current = null;
+            if (!scrollContainerRef.current) return;
+
+            const container = scrollContainerRef.current;
+            const vh = container.clientHeight || window.innerHeight;
+            const nextActiveIndex = Math.max(0, Math.min(posts.length - 1, Math.round(container.scrollTop / vh)));
+            const currentPost = posts[nextActiveIndex];
+
+            if (currentPost && currentPost.id !== activePostIdRef.current) {
+                activePostIdRef.current = currentPost.id;
+                setActivePostId(currentPost.id);
+                setVideoTime(0);
+                setVideoDuration(0);
+                setVideoBuffered(0);
+                setShowControlsId(null);
+                if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+            }
+        });
+    }, [posts]);
 
     useEffect(() => {
         if (posts.length > 0) handleScroll();
-    }, [posts]);
+    }, [posts, handleScroll]);
+
+    useEffect(() => {
+        return () => {
+            if (scrollRafRef.current !== null) {
+                window.cancelAnimationFrame(scrollRafRef.current);
+            }
+        };
+    }, []);
 
     // Poll Bunny Stream API for newly uploaded videos
     useEffect(() => {
@@ -676,8 +707,51 @@ function HomeFeedContent() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-
     const activeIndex = posts.findIndex(p => p.id === activePostId);
+
+    const warmMedia = useCallback((post?: Post) => {
+        if (!post?.main_image_url || !isVideo(post.main_image_url)) return;
+
+        const mediaUrl = isBunnyStream(post.main_image_url)
+            ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url)
+            : post.main_image_url;
+        const posterUrl = getBunnyStreamThumbnailUrl(post.main_image_url);
+
+        [posterUrl, mediaUrl].forEach((url) => {
+            if (!url || warmedMediaRef.current.has(url)) return;
+            warmedMediaRef.current.add(url);
+
+            if (url.match(/\.(jpg|jpeg|png|webp)(\?|$)/i) || url.includes('thumbnail.jpg')) {
+                const img = new Image();
+                img.decoding = 'async';
+                img.loading = 'eager';
+                img.src = url;
+                return;
+            }
+
+            fetch(url, {
+                mode: 'cors',
+                cache: 'force-cache',
+                credentials: 'omit',
+            }).catch(() => {
+                warmedMediaRef.current.delete(url);
+            });
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!posts.length) return;
+
+        const currentIndex = activeIndex >= 0 ? activeIndex : 0;
+        const immediatePosts = posts.slice(currentIndex, currentIndex + 3);
+        immediatePosts.forEach(warmMedia);
+
+        const deeperWarmTimer = window.setTimeout(() => {
+            posts.slice(currentIndex + 3, currentIndex + 5).forEach(warmMedia);
+        }, 700);
+
+        return () => window.clearTimeout(deeperWarmTimer);
+    }, [activeIndex, posts, warmMedia]);
 
     return (
         <div className="bg-black text-white h-[100dvh] w-full overflow-hidden relative">
@@ -783,10 +857,10 @@ function HomeFeedContent() {
                     </div>
                 )}
                 {!loading && posts.map((post, index) => {
-                    // Mobile-specific optimization: Mount only current and next
-                    // Desktop can afford an extra previous/next buffer
+                    // Keep a tiny warm window around the active item so swipes feel instant
+                    // without keeping the whole feed's video decoders alive.
                     const isNearActive = isMobile 
-                        ? (index >= activeIndex && index <= activeIndex + 1)
+                        ? (index >= activeIndex - 1 && index <= activeIndex + 1)
                         : (index >= activeIndex - 1 && index <= activeIndex + 2);
                     
                     const isPriorityNext = index === activeIndex + 1;
@@ -1376,4 +1450,3 @@ export default function HomeFeed() {
         </Suspense>
     );
 }
-

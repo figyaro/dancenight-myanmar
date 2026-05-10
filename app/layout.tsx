@@ -33,6 +33,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://vz-dc7bf078-297.b-cdn.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://player.mediadelivery.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://iframe.mediadelivery.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://dancetgt.b-cdn.net" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} antialiased`}
         suppressHydrationWarning

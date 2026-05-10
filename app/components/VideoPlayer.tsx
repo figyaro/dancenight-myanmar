@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Attempt to import Hls, but handle its absence gracefully (since npm install might fail in some environments)
 let Hls: any = null;
@@ -56,7 +56,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const lastPlayRequestRef = useRef(0);
 
   // Handle external seek requests
   useEffect(() => {
@@ -85,7 +85,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         video.load(); 
         
         const handleLoadedMetadata = () => {
-          setIsLoaded(true);
           if (onDurationChange) onDurationChange(video.duration);
           if (autoPlay && isPlaying) {
             // Native iOS often requires a slight delay or user interaction, 
@@ -113,6 +112,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         // Optimized settings for mobile/low-latency startup (TikTok-like)
         const hls = new Hls({
           enableWorker: true, 
+          lowLatencyMode: true,
           capLevelToPlayerSize: true,
           liveSyncDurationCount: 3,
           maxBufferLength: 5,           // Extremely tight buffer for fast start
@@ -120,9 +120,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           maxBufferSize: 30 * 1000 * 1000, // 30MB
           backBufferLength: 0,          // No back buffer on mobile to save memory
           startLevel: 0,                // Always start at lowest quality for instant playback
+          testBandwidth: false,
+          startFragPrefetch: true,
           abrEwmaDefaultEstimate: 500000,
+          manifestLoadingTimeOut: 6000,
+          fragLoadingTimeOut: 8000,
           manifestLoadingMaxRetry: 5,
           levelLoadingMaxRetry: 5,
+          fragLoadingMaxRetry: 4,
           nudgeOffset: 0.1,             // Skip small gaps to prevent stalling
           nudgeMaxRetry: 10,
         });
@@ -132,7 +137,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         hls.attachMedia(video);
         
         hls.on(Hls.Events.MANIFEST_PARSED, (event: any, data: any) => {
-          setIsLoaded(true);
           if (autoPlay && isPlaying) {
             video.play().catch(err => console.warn('Hls.js play blocked:', err));
           }
@@ -170,7 +174,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.load();
       // Wait for metadata to get duration
       const handleMetadata = () => {
-        setIsLoaded(true);
         if (onDurationChange) onDurationChange(video.duration);
       };
       video.addEventListener('loadedmetadata', handleMetadata);
@@ -195,10 +198,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video) return;
 
     if (isPlaying) {
+      const requestId = Date.now();
+      lastPlayRequestRef.current = requestId;
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
           // Auto-play might be blocked by browser policy
+          if (lastPlayRequestRef.current !== requestId) return;
           console.warn('Playback triggered but possibly blocked:', err);
         });
       }
@@ -240,7 +246,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <video
       ref={videoRef}
       poster={poster}
-      className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+      className={className}
       // Essential attributes for iOS/Mobile to allow inline and auto-playback
       playsInline
       // @ts-ignore
@@ -256,6 +262,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onProgress={handleProgress}
       style={{ objectFit }}
       preload={preload}
+      disablePictureInPicture
     />
   );
 };
