@@ -9,9 +9,8 @@ import { supabase } from '../../../lib/supabase';
 import { getEffectiveUserId } from '../../../lib/auth-util';
 import { t } from '../../../lib/i18n';
 import LoadingScreen from '../../components/LoadingScreen';
-import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl, getBunnyStreamHLSUrl } from '../../../lib/bunny';
-import VideoPlayer from '../../components/VideoPlayer';
 import TipModal from '../../components/TipModal';
+import VideoPreviewThumbnail from '../../components/VideoPreviewThumbnail';
 
 export default function PublicProfile() {
     const { id } = useParams();
@@ -23,8 +22,6 @@ export default function PublicProfile() {
     const [viewerLanguage, setViewerLanguage] = useState<string | null>('英語');
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [userPosts, setUserPosts] = useState<any[]>([]);
-    const [isPlayingVideoId, setPlayingVideoId] = useState<string | null>(null);
-    const [lastTap, setLastTap] = useState<{ id: string, time: number } | null>(null);
     const [isTipModalOpen, setIsTipModalOpen] = useState(false);
     const router = useRouter();
 
@@ -194,31 +191,6 @@ export default function PublicProfile() {
             alert(`メッセージ開始エラー: ${errorMsg}\n詳細をブラウザコンソールで確認してください。`);
         } finally {
             setActionLoading(false);
-        }
-    };
-
-    const handlePostTap = (post: any) => {
-        const now = Date.now();
-        const DOUBLE_TAP_DELAY = 300;
-        const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-
-        if (lastTap && lastTap.id === post.id && (now - lastTap.time) < DOUBLE_TAP_DELAY) {
-            // Double Tap -> Navigate to Home
-            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
-            setLastTap(null);
-        } else {
-            // Single Tap -> Play in thumbnail (if video)
-            setLastTap({ id: post.id, time: now });
-            
-            if (isPostVideo) {
-                // Toggle playback
-                setPlayingVideoId(prev => prev === post.id ? null : post.id);
-            } else {
-                // If image, maybe just navigate on single tap as before? 
-                // Or wait for double tap? User said "動画の場合" (in case of video).
-                // For images, we'll maintain single-tap navigation for better UX unless specified otherwise.
-                router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
-            }
         }
     };
 
@@ -404,48 +376,17 @@ export default function PublicProfile() {
                             )}
 
                             {userPosts.map((post) => {
-                                const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-                                const isPlaying = isPlayingVideoId === post.id;
-                                
                                 return (
                                     <div 
                                         key={post.id} 
-                                        onClick={() => handlePostTap(post)}
                                         className="aspect-[9/16] liquid-glass !rounded-[1.25rem] !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
                                     >
-                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow */}
-                                        {post.main_image_url ? (
-                                            isVideo(post.main_image_url) ? (
-                                                <div className="w-full h-full relative">
-                                                    <VideoPlayer
-                                                        url={isBunnyStream(post.main_image_url) ? (getBunnyStreamHLSUrl(post.main_image_url) || post.main_image_url) : post.main_image_url}
-                                                        poster={getBunnyStreamThumbnailUrl(post.main_image_url) || undefined}
-                                                        className="w-full h-full"
-                                                        isPlaying={isPlaying}
-                                                        isMuted={true}
-                                                        autoPlay={isPlaying}
-                                                        loop={true}
-                                                        onEnded={() => setPlayingVideoId(null)}
-                                                        objectFit="cover"
-                                                    />
-                                                    {!isPlaying && (
-                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <img 
-                                                    src={post.main_image_url} 
-                                                    className="w-full h-full object-cover" 
-                                                    alt="" 
-                                                />
-                                            )
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                                                <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
-                                            </div>
-                                        )}
+                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-none rounded-[inherit]" />
+                                        <VideoPreviewThumbnail
+                                            mediaUrl={post.main_image_url}
+                                            title={post.name || post.title || 'Post'}
+                                            onOpen={() => router.push(`/home?postId=${post.id}&userId=${post.user_id}`)}
+                                        />
                                         <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                     </div>
                                 );

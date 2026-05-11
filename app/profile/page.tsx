@@ -8,18 +8,16 @@ import TopNav from '../components/TopNav';
 import { getEffectiveUserId } from '../../lib/auth-util';
 import { supabase } from '../../lib/supabase';
 import { t } from '../../lib/i18n';
-import { isBunnyStream, getBunnyStreamThumbnailUrl, isVideo, getBunnyStreamEmbedUrl } from '../../lib/bunny';
 import WalletCard from '../components/WalletCard';
 import CoinStore from '../components/CoinStore';
 import TransactionHistory from '../components/TransactionHistory';
+import VideoPreviewThumbnail from '../components/VideoPreviewThumbnail';
 
 export default function Profile() {
     const [profile, setProfile] = useState<any>(null);
     const [dancerData, setDancerData] = useState<any>(null);
     const [userPosts, setUserPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isPlayingVideoId, setPlayingVideoId] = useState<string | null>(null);
-    const [lastTap, setLastTap] = useState<{ id: string, time: number } | null>(null);
     const [isCoinStoreOpen, setIsCoinStoreOpen] = useState(false);
     const router = useRouter();
 
@@ -74,29 +72,6 @@ export default function Profile() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
-    };
-
-    const handlePostTap = (post: any) => {
-        const now = Date.now();
-        const DOUBLE_TAP_DELAY = 300;
-        const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-
-        if (lastTap && lastTap.id === post.id && (now - lastTap.time) < DOUBLE_TAP_DELAY) {
-            // Double Tap -> Navigate to Home
-            router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
-            setLastTap(null);
-        } else {
-            // Single Tap -> Play in thumbnail (if video) or Navigate (if image)
-            setLastTap({ id: post.id, time: now });
-            
-            if (isPostVideo) {
-                // Toggle playback
-                setPlayingVideoId(prev => prev === post.id ? null : post.id);
-            } else {
-                // For images, single-tap navigation
-                router.push(`/home?postId=${post.id}&userId=${post.user_id}`);
-            }
-        }
     };
 
     if (loading) {
@@ -302,70 +277,17 @@ export default function Profile() {
                             </Link>
 
                             {userPosts.map((post) => {
-                                const isPostVideo = isBunnyStream(post.main_image_url) || isVideo(post.main_image_url);
-                                const isPlaying = isPlayingVideoId === post.id;
-                                
                                 return (
                                     <div 
                                         key={post.id} 
-                                        onClick={() => handlePostTap(post)}
                                         className="aspect-[9/16] liquid-glass !rounded-xl !border-[0.5px] border-white/20 group cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
                                     >
-                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-auto rounded-[inherit]" /> {/* Click interceptor overlay with glow slice */}
-                                        {post.main_image_url ? (
-                                            isBunnyStream(post.main_image_url) ? (
-                                                isPlaying ? (
-                                                    <iframe
-                                                        key={`${post.id}-playing`}
-                                                        src={getBunnyStreamEmbedUrl(post.main_image_url, true) || ''}
-                                                        loading="lazy"
-                                                        style={{ border: 0, width: '100%', height: '100%' }}
-                                                        className="w-full h-full object-cover pointer-events-none" 
-                                                        allow="accelerometer; gyroscope; autoplay; encrypted-media;"
-                                                    ></iframe>
-                                                ) : (
-                                                    <div className="w-full h-full relative">
-                                                        <img 
-                                                            src={getBunnyStreamThumbnailUrl(post.main_image_url) || ''} 
-                                                            className="w-full h-full object-cover" 
-                                                            alt="" 
-                                                        />
-                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            ) : isVideo(post.main_image_url) ? (
-                                                <div className="w-full h-full relative">
-                                                    <video 
-                                                        key={isPlaying ? `${post.id}-playing` : `${post.id}-paused`}
-                                                        src={post.main_image_url} 
-                                                        className="w-full h-full object-cover"
-                                                        muted
-                                                        playsInline
-                                                        // @ts-ignore
-                                                        webkit-playsinline="true"
-                                                        autoPlay={isPlaying}
-                                                        onEnded={() => setPlayingVideoId(null)}
-                                                    />
-                                                    {!isPlaying && (
-                                                        <div className="absolute top-2 right-2 w-5 h-5 rounded-md bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <img 
-                                                    src={post.main_image_url} 
-                                                    className="w-full h-full object-cover" 
-                                                    alt="" 
-                                                />
-                                            )
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                                                <span className="text-[8px] opacity-20 uppercase font-black">No Media</span>
-                                            </div>
-                                        )}
+                                        <div className="edge-glow-effect absolute inset-0 z-20 pointer-events-none rounded-[inherit]" />
+                                        <VideoPreviewThumbnail
+                                            mediaUrl={post.main_image_url}
+                                            title={post.name || post.title || 'Post'}
+                                            onOpen={() => router.push(`/home?postId=${post.id}&userId=${post.user_id}`)}
+                                        />
                                         <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                     </div>
                                 );
@@ -392,4 +314,3 @@ export default function Profile() {
         </div>
     );
 }
-
