@@ -21,6 +21,28 @@ export default function UserManagement() {
         fetchUsers();
     }, []);
 
+    const mergePostCounts = async (baseUsers: any[]) => {
+        const { data: postsData, error: postsError } = await supabase
+            .from('posts')
+            .select('user_id')
+            .not('user_id', 'is', null);
+
+        if (postsError) {
+            console.error('Error fetching fallback post counts:', postsError);
+            return baseUsers;
+        }
+
+        const postCounts = (postsData || []).reduce<Record<string, number>>((acc, post) => {
+            if (post.user_id) acc[post.user_id] = (acc[post.user_id] || 0) + 1;
+            return acc;
+        }, {});
+
+        return baseUsers.map(user => ({
+            ...user,
+            post_count: postCounts[user.id] ?? user.post_count ?? 0,
+        }));
+    };
+
     const fetchUsers = async () => {
         setLoading(true);
         
@@ -46,9 +68,11 @@ export default function UserManagement() {
                 .from('users')
                 .select('*')
                 .order('created_at', { ascending: false });
-            setUsers(fallbackData || []);
+            setUsers(await mergePostCounts(fallbackData || []));
         } else {
-            setUsers(usersData || []);
+            const userList = usersData || [];
+            const hasAnyPostCount = userList.some((user: any) => Number(user.post_count) > 0);
+            setUsers(hasAnyPostCount ? userList : await mergePostCounts(userList));
         }
         setLoading(false);
     };
