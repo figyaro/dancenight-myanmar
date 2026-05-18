@@ -200,102 +200,54 @@ export default function SalesManagement() {
         }
     };
 
-    const fetchAndFormatDetails = async (places: any[], paginationObj: any) => {
-        const google = (window as any).google;
-        const dummyDiv = document.createElement('div');
-        const service = new google.maps.places.PlacesService(dummyDiv);
-
-        // Get existing place IDs to exclude duplicates
-        const existingPlaceIds = new Set(leads.map(l => l.google_place_id).filter(Boolean));
-
-        const newDetailedResults = await Promise.all(
-            places.map(async (place) => {
-                // Deduplication
-                if (existingPlaceIds.has(place.place_id)) return null;
-
-                return new Promise((resolve) => {
-                    service.getDetails({ 
-                        placeId: place.place_id,
-                        fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'photos', 'types', 'place_id', 'rating']
-                    }, (details: any, dStatus: any) => {
-                        if (dStatus === google.maps.places.PlacesServiceStatus.OK && details) {
-                            let cat = 'others';
-                            const t = details.types || [];
-                            if (t.includes('night_club') || t.includes('bar')) cat = 'CLUB';
-                            else if (t.includes('ktv')) cat = 'KTV';
-                            else if (t.includes('spa')) cat = 'SPA';
-                            else if (t.includes('massage')) cat = 'Massage';
-                            else if (t.includes('restaurant')) cat = 'RESTAURANT';
-
-                            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-                            const photoReference = details.photos?.[0]?.photo_reference;
-                            const photoUrl = photoReference 
-                                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoReference}&key=${apiKey}`
-                                : null;
-
-                            resolve({
-                                name: details.name,
-                                address: details.formatted_address,
-                                phone: details.formatted_phone_number || '',
-                                website: details.website || '',
-                                category: cat,
-                                google_place_id: details.place_id,
-                                rating: details.rating,
-                                photo_url: photoUrl
-                            });
-                        } else {
-                            resolve(null); // Skip if details fail
-                        }
-                    });
-                });
-            })
-        );
-
-        const filtered = newDetailedResults.filter(Boolean);
-        setExtractedResults(prev => paginationObj?.hasNextPage ? [...prev, ...filtered] : filtered);
-        setPagination(paginationObj);
-        setIsLoadingMore(false);
-        setLoading(false);
-    };
-
-    const searchGoogleMaps = async () => {
+    const searchGoogleMaps = async (pageToken?: string) => {
         if (!googleSearchQuery) return;
-        setLoading(true);
-        setExtractedResults([]);
-
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-        if (!apiKey) {
-            alert('Google Maps API Key not found.');
-            setLoading(false);
-            return;
+        if (pageToken) {
+            setIsLoadingMore(true);
+        } else {
+            setLoading(true);
+            setExtractedResults([]);
+            setPagination(null);
         }
 
-        if (typeof window !== 'undefined' && !(window as any).google) {
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-            script.async = true;
-            document.head.appendChild(script);
-            await new Promise((resolve) => script.onload = resolve);
-        }
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const existingPlaceIds = [
+                ...leads.map(l => l.google_place_id).filter(Boolean),
+                ...extractedResults.map(r => r.google_place_id).filter(Boolean)
+            ];
 
-        const google = (window as any).google;
-        const dummyDiv = document.createElement('div');
-        const service = new google.maps.places.PlacesService(dummyDiv);
+            const response = await fetch('/api/admin/google-places/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+                },
+                body: JSON.stringify({
+                    query: googleSearchQuery,
+                    pageToken,
+                    existingPlaceIds
+                })
+            });
 
-        service.textSearch({ query: googleSearchQuery }, (results: any[], status: any, paginationObj: any) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                fetchAndFormatDetails(results, paginationObj);
-            } else {
-                alert('Search failed: ' + status);
-                setLoading(false);
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.error || 'Search failed.');
             }
-        });
+
+            setExtractedResults(prev => pageToken ? [...prev, ...(payload.places || [])] : (payload.places || []));
+            setPagination(payload.nextPageToken ? { nextPageToken: payload.nextPageToken } : null);
+        } catch (err: any) {
+            alert('Search failed: ' + err.message);
+        } finally {
+            setIsLoadingMore(false);
+            setLoading(false);
+        }
     };
 
     const loadMoreResults = () => {
-        if (pagination && pagination.hasNextPage) {
-            setIsLoadingMore(true);
-            pagination.nextPage();
+        if (pagination?.nextPageToken) {
+            searchGoogleMaps(pagination.nextPageToken);
         }
     };
 
@@ -311,6 +263,11 @@ export default function SalesManagement() {
             status: 'Prospect',
             metadata: { 
                 photo_url: result.photo_url,
+                photo_name: result.photo_name,
+                google_maps_url: result.google_maps_url,
+                rating: result.rating,
+                location: result.location,
+                types: result.types,
                 imported_at: new Date().toISOString()
             }
         }]);
@@ -552,7 +509,7 @@ export default function SalesManagement() {
                                 className="flex-1 bg-black/40 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:border-pink-500/50 transition-all"
                             />
                             <button 
-                                onClick={searchGoogleMaps}
+                                onClick={() => searchGoogleMaps()}
                                 disabled={loading}
                                 className="px-8 py-4 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
                             >
@@ -622,7 +579,7 @@ export default function SalesManagement() {
                                 ))}
                             </div>
 
-                            {pagination && pagination.hasNextPage && (
+                            {pagination?.nextPageToken && (
                                 <div className="mt-12 text-center">
                                     <button 
                                         onClick={loadMoreResults}
